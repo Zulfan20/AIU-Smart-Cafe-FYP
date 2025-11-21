@@ -2,36 +2,30 @@ import mongoose from 'mongoose';
 
 const DemandDataSchema = new mongoose.Schema({
   date: {
-    type: Date,
+    type: Date, // ISODate 
     required: true,
   },
   hour: {
-    type: Number, // Storing the hour (0-23) for granular forecasting
+    type: Number, // Storing the hour (0-23) 
     required: true,
   },
   itemId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MenuItem',
-    required: true,
+    required: true, // Mandatory 
   },
   actualDemand: {
-    type: Number, // The actual number of units sold
+    type: Number, // Total number of units sold (ML Input) 
     required: true,
   },
-  
-  // --- ML MODEL OUTPUT ---
-  // We store the model's prediction here to compare
-  // its accuracy against the actual demand.
   predictedDemand: {
-    type: Number,
-  }
-  // ------------------------
-
+    type: Number, // (ML Output) Stored for comparison 
+    required: false,
+  },
 }, {
-  timestamps: true // This will log when the data point was created
+  timestamps: true
 });
 
-// Create a compound index to prevent duplicate data entries for the same item at the same hour
 DemandDataSchema.index({ date: 1, hour: 1, itemId: 1 }, { unique: true });
 
 export default mongoose.models.DemandData || mongoose.model('DemandData', DemandDataSchema);

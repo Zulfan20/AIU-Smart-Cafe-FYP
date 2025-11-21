@@ -1,30 +1,30 @@
 import mongoose from 'mongoose';
 
-// A small embedded schema for operating hours
 const OperatingHoursSchema = new mongoose.Schema({
-  start: { type: String, default: '08:00' }, // e.g., "08:00"
-  end: { type: String, default: '17:00' },   // e.g., "17:00"
-});
+  start: { type: String, default: '08:00' }, 
+  end: { type: String, default: '22:00' },
+}, { _id: false }); // Prevent Mongoose from creating an _id for the embedded schema
 
 const AdminSettingsSchema = new mongoose.Schema({
-  // We won't use the default ObjectId.
-  // We will force this document to have one, known ID
-  // so we can always find it.
-  _id: {
+  // Use a different field name to store the fixed ID value
+  settingId: {
     type: String,
-    default: 'global_settings',
+    required: true,
+    unique: true, // This ensures only ONE document with this ID can exist
+    default: 'global_settings', // The fixed value for easy retrieval
   },
   isCafeOpen: {
     type: Boolean,
-    default: true, // This is the master "on/off" switch for ordering
+    required: true, 
+    default: true,
   },
   orderCutoffTime: {
     type: String,
-    default: '11:30', // e.g., "11:30" AM for lunch pre-orders
+    required: true,
+    default: '11:30',
   },
-  operatingHours: OperatingHoursSchema,
+  operatingHours: OperatingHoursSchema, // Embedded Document
 
-  // A place to store parameters for your ML models
   forecastModelParams: {
     lookbackDays: { type: Number, default: 30 },
   },
@@ -32,7 +32,8 @@ const AdminSettingsSchema = new mongoose.Schema({
   lastUpdatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-  }
+    required: false,
+  },
 }, {
   timestamps: true
 });

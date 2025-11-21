@@ -1,9 +1,7 @@
 import mongoose from 'mongoose';
 
 /**
- * This is the schema for the items *inside* an order.
- * We define it here but DO NOT create a separate model.
- * It will be embedded directly into the OrderSchema.
+ * Schema for the items *inside* an order (Embedded Document).
  */
 const OrderItemSchema = new mongoose.Schema({
   itemId: {
@@ -21,7 +19,7 @@ const OrderItemSchema = new mongoose.Schema({
     min: 1,
   },
   price: {
-    type: Number, // Price *at the time of purchase*
+    type: Number, // Price at the time of purchase
     required: true,
   },
 });
@@ -30,34 +28,30 @@ const OrderSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true, // Mandatory
   },
-  // Here we embed the items array.
-  // This is the core of our NoSQL design for orders.
-  items: [OrderItemSchema],
+  items: [OrderItemSchema], // Embedded items array
 
   totalAmount: {
-    type: Number,
+    type: Number, // The final price of the entire order
     required: true,
   },
   status: {
     type: String,
-    enum: ['Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'],
+    enum: ['Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'], //
     default: 'Pending',
+    required: true,
   },
   staffId: {
-    // ID of the staff member who prepared/handled the order
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', 
+    ref: 'User', // ID of the staff who prepared the order
+    required: false,
   },
-  timePrepared: {
-    type: Date,
-  },
-  timeCompleted: {
-    type: Date,
-  },
+  // --- Removed: timePrepared and timeCompleted ---
+  // The 'timestamps: true' field will manage 'createdAt' and 'updatedAt'.
+  // The 'status' field will be updated to track preparation time.
 }, {
-  timestamps: true // Adds createdAt (when order was placed)
+  timestamps: true // Includes createdAt (when order was placed) and updatedAt
 });
 
 export default mongoose.models.Order || mongoose.model('Order', OrderSchema);

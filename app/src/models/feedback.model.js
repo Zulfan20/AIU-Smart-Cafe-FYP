@@ -4,45 +4,41 @@ const FeedbackSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: true, // Mandatory 
   },
   itemId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MenuItem',
-    required: true,
+    required: true, // Mandatory 
   },
   orderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Order',
-    required: true,
+    required: true, // Mandatory 
   },
   rating: {
     type: Number,
     min: 1,
     max: 5,
-    required: [true, 'Rating is mandatory'], // As you requested
+    required: [true, 'Rating is mandatory'], // Mandatory (1-5) 
   },
   textReview: {
     type: String,
     trim: true,
-    required: false, // As you requested, this is optional
+    required: false, // Optional   
   },
-  
-  // --- ML MODEL OUTPUTS ---
-  // Your ML service will populate these fields *after* submission.
   sentimentScore: {
-    type: Number, // e.g., 0.92 (from Logistic Regression/LSTM)
+    type: Number, // (ML Output) Precision score 
     required: false,
   },
   sentimentCategory: {
-    type: String, // e.g., "Positive", "Negative", "Neutral"
+    type: String, // (ML Output) Simple label [cite: 754]
     enum: ['Positive', 'Negative', 'Neutral', null],
     default: null,
+    required: false,
   }
-  // ------------------------
-
 }, {
-  timestamps: true // Adds createdAt (when review was submitted)
+  timestamps: true
 });
 
 export default mongoose.models.Feedback || mongoose.model('Feedback', FeedbackSchema);
