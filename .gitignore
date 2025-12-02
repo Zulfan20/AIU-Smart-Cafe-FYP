@@ -65,7 +65,6 @@ Ignore Jupyter Notebook checkpoints
 
 Ignore built report files like PDFs
 
-*.pdf
 
 Ignore CSV exports from your Gantt chart.
 
