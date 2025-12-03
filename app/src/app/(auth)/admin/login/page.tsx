@@ -4,43 +4,72 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { BarChart3, ArrowLeft } from "lucide-react"
 
 export default function OwnerLoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
+  // NEW: Real Login Function
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
-    // Simulate login for now
-    setTimeout(() => {
+    setError("")
+
+    const email = (document.getElementById("email") as HTMLInputElement).value
+    const password = (document.getElementById("password") as HTMLInputElement).value
+
+    try {
+        const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+            throw new Error(data.error || "Login failed")
+        }
+
+        // CRITICAL: Save the token!
+        localStorage.setItem("token", data.token)
+        localStorage.setItem("userRole", data.user.role)
+
+        // Check if user is actually admin/staff
+        if (data.user.role === "student") {
+            setError("Access Denied: Students cannot access Owner Portal")
+            return
+        }
+
+        router.push('/owner-dashboard') 
+
+    } catch (err: any) {
+        setError(err.message)
+    } finally {
         setLoading(false)
-        router.push('/owner-dashboard') // Redirect to the dashboard
-    }, 1000)
+    }
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-      {/* Dark background for Admin Login to distinguish it */}
       <Card className="w-full max-w-md border-0 shadow-2xl">
         <CardHeader className="space-y-1 flex flex-col items-center text-center">
           <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4">
             <BarChart3 className="w-6 h-6 text-blue-600" />
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">Owner Portal</CardTitle>
-          <CardDescription>
-            Secure access for café management
-          </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
+            {error && <div className="p-3 bg-red-100 text-red-600 text-sm rounded">{error}</div>}
+            
             <div className="space-y-2">
               <Label htmlFor="email">Admin Email</Label>
-              <Input id="email" type="email" placeholder="admin@aiu.edu.my" required />
+              <Input id="email" type="email" required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
