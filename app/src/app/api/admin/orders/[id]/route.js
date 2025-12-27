@@ -21,7 +21,7 @@ export async function PUT(request, { params }) {
     const { status } = await request.json();
 
     // 2. Validate the new status
-    const validStatuses = ['Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
+    const validStatuses = ['Pending', 'Preparing', 'Ready', 'Completed', 'Rejected'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ 
         error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 

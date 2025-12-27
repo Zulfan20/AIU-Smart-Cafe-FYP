@@ -37,10 +37,15 @@ export default function StudentLoginPage() {
             throw new Error(data.error || "Login failed")
         }
 
-        // CRITICAL: Save the token!
-        // This is what the Student Dashboard checks for "isLoggedIn"
-        localStorage.setItem("token", data.token)
-        localStorage.setItem("userRole", data.user.role)
+        // CRITICAL: Save the token with student-specific key!
+        // This prevents conflicts with admin login in other tabs
+        localStorage.setItem("studentToken", data.token)
+        localStorage.setItem("studentRole", data.user.role)
+        localStorage.setItem("studentUser", JSON.stringify(data.user))
+        
+        // Clear any admin tokens to prevent confusion
+        localStorage.removeItem("adminToken")
+        localStorage.removeItem("token") // legacy key
 
         // Redirect to the Student Dashboard (Menu)
         router.push('/student-dashboard') 

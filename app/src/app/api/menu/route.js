@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import MenuItem from '@/models/menuItem.model';
+import Feedback from '@/models/feedback.model';
 
 // GET: Fetch menu items (Public - No Auth Required)
 // Supports filtering: /api/menu?category=Drink&search=nasi&maxPrice=10
@@ -38,7 +39,23 @@ export async function GET(request) {
     // Sort by category first, then name
     const items = await MenuItem.find(query).sort({ category: 1, name: 1 });
 
-    return NextResponse.json(items, { status: 200 });
+    // 4. Fetch ratings and reviews count for each item
+    const itemsWithRatings = await Promise.all(
+      items.map(async (item) => {
+        const feedbacks = await Feedback.find({ itemId: item._id });
+        const avgRating = feedbacks.length > 0
+          ? feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length
+          : 0;
+        
+        return {
+          ...item.toObject(),
+          averageRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal
+          reviewCount: feedbacks.length
+        };
+      })
+    );
+
+    return NextResponse.json(itemsWithRatings, { status: 200 });
 
   } catch (error) {
     console.error('Public Menu GET Error:', error);

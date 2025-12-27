@@ -2,7 +2,21 @@ import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Order from '@/models/order.model';
 import MenuItem from '@/models/menuItem.model'; // Needed to fetch real prices
+import AdminSettings from '@/models/adminSettings.model';
 import { verifyAuth } from '@/lib/verifyAuth';
+
+// Helper function to check if current time is within operating hours
+function isWithinOperatingHours(startTime, endTime) {
+  const now = new Date();
+  const currentTime = now.toTimeString().slice(0, 5); // Format: "HH:MM"
+  
+  // Handle overnight shifts (e.g., 22:00 to 02:00)
+  if (startTime > endTime) {
+    return currentTime >= startTime || currentTime <= endTime;
+  }
+  
+  return currentTime >= startTime && currentTime <= endTime;
+}
 
 // POST: Place a new order (Requires Login)
 export async function POST(request) {
@@ -17,14 +31,45 @@ export async function POST(request) {
   await dbConnect();
 
   try {
+    // 2. CHECK CAFE STATUS & OPERATING HOURS
+    let settings = await AdminSettings.findOne({ settingId: 'global_settings' });
+    
+    // Create default settings if none exist
+    if (!settings) {
+      settings = new AdminSettings({
+        settingId: 'global_settings',
+        isCafeOpen: true,
+        operatingHours: { start: '08:00', end: '22:00' }
+      });
+      await settings.save();
+    }
+
+    // Check if cafe is manually closed
+    if (!settings.isCafeOpen) {
+      return NextResponse.json({ 
+        error: 'The café is currently closed. Please try again later.',
+        isCafeOpen: false
+      }, { status: 403 });
+    }
+
+    // Check if current time is within operating hours
+    const { start, end } = settings.operatingHours;
+    if (!isWithinOperatingHours(start, end)) {
+      return NextResponse.json({ 
+        error: `The café is outside operating hours. We're open from ${start} to ${end}.`,
+        isCafeOpen: false,
+        operatingHours: { start, end }
+      }, { status: 403 });
+    }
+
     const { items } = await request.json();
 
-    // Validation: Ensure items array exists and is not empty
+    // 3. Validation: Ensure items array exists and is not empty
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Order must contain at least one item.' }, { status: 400 });
     }
 
-    // 2. Calculate Total & Build Order Items securely
+    // 4. Calculate Total & Build Order Items securely
     // We DO NOT trust the price sent from the frontend.
     // We fetch the real items from the DB to get the current price and availability.
     
@@ -58,7 +103,7 @@ export async function POST(request) {
       });
     }
 
-    // 3. Create the Order
+    // 5. Create the Order
     const newOrder = new Order({
       userId: auth.user._id, // Link to the logged-in user
       items: finalOrderItems,
@@ -93,13 +138,43 @@ export async function GET(request) {
   await dbConnect();
 
   try {
+    // Import Feedback model
+    const Feedback = (await import('@/models/feedback.model')).default;
+    
     // 2. Find orders belonging to the logged-in user
-    // We filter by { userId: auth.user._id } so they can't see other people's orders.
-    // .sort({ createdAt: -1 }) means "Newest orders first".
     const orders = await Order.find({ userId: auth.user._id })
       .sort({ createdAt: -1 });
 
-    return NextResponse.json(orders, { status: 200 });
+    // 3. For each order, check which items have feedback
+    const ordersWithFeedback = await Promise.all(
+      orders.map(async (order) => {
+        const orderObj = order.toObject();
+        
+        // Check feedback for each item in the order
+        const itemsWithFeedback = await Promise.all(
+          orderObj.items.map(async (item) => {
+            const feedback = await Feedback.findOne({
+              orderId: order._id,
+              itemId: item.itemId,
+              userId: auth.user._id
+            });
+            
+            return {
+              ...item,
+              feedbackSubmitted: !!feedback,
+              feedback: feedback || null
+            };
+          })
+        );
+        
+        return {
+          ...orderObj,
+          items: itemsWithFeedback
+        };
+      })
+    );
+
+    return NextResponse.json(ordersWithFeedback, { status: 200 });
 
   } catch (error) {
     console.error('My Orders GET Error:', error);

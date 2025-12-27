@@ -4,6 +4,28 @@ import dbConnect from '@/lib/dbConnect';
 import Feedback from '@/models/feedback.model';
 import { verifyAuth } from '@/lib/verifyAuth';
 
+// GET: Fetch all feedbacks (Public - for displaying reviews)
+export async function GET(request) {
+  await dbConnect();
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const itemId = searchParams.get('itemId');
+    
+    const query = itemId ? { itemId } : {};
+    
+    const feedbacks = await Feedback.find(query)
+      .populate('userId', 'name profilePic')
+      .populate('itemId', 'name')
+      .sort({ createdAt: -1 });
+
+    return NextResponse.json(feedbacks, { status: 200 });
+  } catch (error) {
+    console.error('Feedback GET Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // POST: Submit Feedback & Analyze Sentiment (Requires Login)
 export async function POST(request) {
   // ---=== 1. SECURITY CHECK ===---
@@ -23,6 +45,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Check if feedback already exists for this user, order, and item
+    const existingFeedback = await Feedback.findOne({
+      userId: auth.user._id,
+      orderId,
+      itemId,
+    });
+
+    if (existingFeedback) {
+      return NextResponse.json(
+        { error: 'You have already submitted feedback for this item' },
+        { status: 400 }
+      );
+    }
+
     // 2. Save Initial Feedback to MongoDB
     // We save it BEFORE calling the ML service. This ensures that even if the 
     // ML service crashes or is offline, we don't lose the user's rating.
@@ -35,6 +71,13 @@ export async function POST(request) {
     });
 
     await newFeedback.save();
+
+    // 3. Update the order to mark this item as having feedback
+    const Order = (await import('@/models/order.model')).default;
+    await Order.updateOne(
+      { _id: orderId, 'items.itemId': itemId },
+      { $set: { 'items.$.feedbackSubmitted': true } }
+    );
 
     // 3. Call Python ML Service (If text exists)
     // Only run sentiment analysis if the user actually typed something.
@@ -50,7 +93,7 @@ export async function POST(request) {
           text: textReview
         });
 
-        // 4. Update the Feedback with ML Results
+        // 5. Update the Feedback with ML Results
         if (mlResponse.data) {
           newFeedback.sentimentScore = mlResponse.data.sentimentScore || 0; // Assuming your API returns this
           newFeedback.sentimentCategory = mlResponse.data.sentiment; // e.g., "Positive"

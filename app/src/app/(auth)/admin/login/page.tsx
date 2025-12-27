@@ -35,15 +35,21 @@ export default function OwnerLoginPage() {
             throw new Error(data.error || "Login failed")
         }
 
-        // CRITICAL: Save the token!
-        localStorage.setItem("token", data.token)
-        localStorage.setItem("userRole", data.user.role)
-
         // Check if user is actually admin/staff
         if (data.user.role === "student") {
             setError("Access Denied: Students cannot access Owner Portal")
             return
         }
+
+        // CRITICAL: Save the token with admin-specific key!
+        // This prevents conflicts with student login in other tabs
+        localStorage.setItem("adminToken", data.token)
+        localStorage.setItem("adminRole", data.user.role)
+        localStorage.setItem("adminUser", JSON.stringify(data.user))
+        
+        // Clear any student tokens to prevent confusion
+        localStorage.removeItem("studentToken")
+        localStorage.removeItem("token") // legacy key
 
         router.push('/owner-dashboard') 
 

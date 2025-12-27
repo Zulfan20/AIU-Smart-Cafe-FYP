@@ -22,6 +22,10 @@ const OrderItemSchema = new mongoose.Schema({
     type: Number, // Price at the time of purchase
     required: true,
   },
+  feedbackSubmitted: {
+    type: Boolean,
+    default: false, // Track if feedback has been given for this item
+  },
 });
 
 const OrderSchema = new mongoose.Schema({
@@ -38,7 +42,7 @@ const OrderSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Ready for pick up', 'Rejected'], //
+    enum: ['Pending', 'Rejected', 'Preparing', 'Ready', 'Completed'],
     default: 'Pending',
     required: true,
   },

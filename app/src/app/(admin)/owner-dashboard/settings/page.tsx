@@ -43,7 +43,7 @@ export default function SettingsPage() {
   // 2. Save Changes
   const handleSave = async () => {
     setSaving(true)
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token") // fallback for legacy
 
     try {
         const res = await fetch('/api/admin/settings', {
@@ -55,20 +55,58 @@ export default function SettingsPage() {
             body: JSON.stringify(settings)
         })
 
-        if (!res.ok) throw new Error("Failed to save")
+        const data = await res.json()
+
+        if (!res.ok) {
+            console.error('Settings save error:', data)
+            throw new Error(data.error || "Failed to save")
+        }
         
         alert("Settings saved successfully!")
 
-    } catch (error) {
-        alert("Error saving settings")
+    } catch (error: any) {
+        console.error('Save settings error:', error)
+        alert(`Error saving settings: ${error.message}`)
     } finally {
         setSaving(false)
     }
   }
 
-  // Toggle Handler
-  const toggleCafe = () => {
-      setSettings(prev => ({ ...prev, isCafeOpen: !prev.isCafeOpen }))
+  // Toggle Handler with auto-save
+  const toggleCafe = async () => {
+    const newStatus = !settings.isCafeOpen
+    setSettings(prev => ({ ...prev, isCafeOpen: newStatus }))
+    
+    // Auto-save the new status immediately
+    setSaving(true)
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token")
+    
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ ...settings, isCafeOpen: newStatus })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        console.error('Toggle cafe error:', data)
+        throw new Error(data.error || "Failed to update cafe status")
+      }
+      
+      alert(`Café ${newStatus ? 'opened' : 'closed'} successfully!`)
+    } catch (error: any) {
+      console.error('Toggle cafe error:', error)
+      alert(`Error updating cafe status: ${error.message}`)
+      // Revert the change if save failed
+      setSettings(prev => ({ ...prev, isCafeOpen: !newStatus }))
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading settings...</div>

@@ -109,7 +109,13 @@ export default function MenuPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token")
+
+    if (!token) {
+      alert("Admin session expired. Please log in again.")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       // Determine URL and Method based on editingId
@@ -159,7 +165,12 @@ export default function MenuPage() {
   // Delete Handler
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token")
+
+    if (!token) {
+      alert("Admin session expired. Please log in again.")
+      return
+    }
     try {
       const res = await fetch(`/api/admin/menu/${id}`, {
         method: "DELETE",
@@ -172,9 +183,15 @@ export default function MenuPage() {
   }
 
   const toggleAvailability = async (item: MenuItem) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token")
     const newStatus = !item.isAvailable
     setItems(items.map(i => i._id === item._id ? { ...i, isAvailable: newStatus } : i))
+
+    if (!token) {
+      alert("Admin session expired. Please log in again.")
+      fetchMenu()
+      return
+    }
 
     try {
       await fetch(`/api/admin/menu/${item._id}`, {

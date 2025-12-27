@@ -22,6 +22,31 @@ const UserSchema = new mongoose.Schema({
     enum: ['student', 'staff', 'admin'],
     default: 'student',
   },
+  // Additional profile fields
+  studentId: {
+    type: String,
+    required: false,
+  },
+  bio: {
+    type: String,
+    required: false,
+  },
+  gender: {
+    type: String,
+    required: false,
+  },
+  birthday: {
+    type: String,
+    required: false,
+  },
+  phone: {
+    type: String,
+    required: false,
+  },
+  profilePic: {
+    type: String,
+    required: false,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

@@ -34,7 +34,7 @@ export default function OrdersPage() {
     setLoading(true)
     try {
       // retrieves token from localStorage (saved during login)
-      const token = localStorage.getItem("token") 
+      const token = localStorage.getItem("adminToken") || localStorage.getItem("token") // fallback for legacy
       
       const res = await fetch("/api/admin/orders", {
         headers: {
@@ -61,7 +61,7 @@ export default function OrdersPage() {
 
   // Function to update status (Accept/Reject)
   const updateStatus = async (orderId: string, newStatus: string) => {
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("adminToken") || localStorage.getItem("token") // fallback for legacy
     try {
         const res = await fetch(`/api/admin/orders/${orderId}`, {
             method: 'PUT',
@@ -137,7 +137,7 @@ export default function OrdersPage() {
                   <Button 
                     variant="outline" 
                     className="border-red-200 text-red-600 hover:bg-red-50"
-                    onClick={() => updateStatus(order._id, 'Cancelled')}
+                    onClick={() => updateStatus(order._id, 'Rejected')}
                   >
                     <XCircle className="w-4 h-4 mr-2" />
                     Reject
