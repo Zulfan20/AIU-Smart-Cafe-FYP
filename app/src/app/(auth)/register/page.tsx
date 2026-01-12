@@ -44,8 +44,8 @@ export default function RegisterPage() {
             throw new Error(data.error || "Registration failed")
         }
 
-        // Success! Redirect to Login
-        alert("Account created! Please login.")
+        // Success! Show pending approval message
+        alert(data.message || "Registration successful! Your account is pending approval.")
         router.push('/login')
 
     } catch (err: any) {

@@ -19,7 +19,8 @@ export async function POST(request) {
     // 4. Find the user by email
     // CRITICAL: We must .select('+passwordHash') because our model hides it by default.
     // We need it here to perform the comparison.
-    const user = await User.findOne({ email }).select('+passwordHash');
+    // Also select accountStatus and rejectionReason for approval check
+    const user = await User.findOne({ email }).select('+passwordHash accountStatus rejectionReason');
 
     if (!user) {
       // Security Best Practice: Use generic error messages to prevent email enumeration
@@ -32,6 +33,21 @@ export async function POST(request) {
 
     if (!isMatch) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // 5.5. Check if account is approved
+    console.log('User account status:', user.accountStatus);
+    
+    if (user.accountStatus === 'pending') {
+      return NextResponse.json({ 
+        error: 'Your account is pending approval. Please wait for admin approval.' 
+      }, { status: 403 });
+    }
+
+    if (user.accountStatus === 'rejected') {
+      return NextResponse.json({ 
+        error: `Your account has been rejected. ${user.rejectionReason ? 'Reason: ' + user.rejectionReason : ''}` 
+      }, { status: 403 });
     }
 
     // 6. Generate JWT Token

@@ -7,11 +7,23 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Utensils, ArrowLeft } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 
 export default function StudentLoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMessage, setResetMessage] = useState("")
 
   // NEW: Real Login Function
   const handleLogin = async (e: React.FormEvent) => {
@@ -57,6 +69,38 @@ export default function StudentLoginPage() {
     }
   }
 
+  // Handle forgot password
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setResetLoading(true)
+    setResetMessage("")
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to send reset instructions")
+      }
+
+      setResetMessage("Password reset instructions have been sent to your email. Please check your inbox.")
+      setTimeout(() => {
+        setIsForgotPasswordOpen(false)
+        setResetEmail("")
+        setResetMessage("")
+      }, 3000)
+    } catch (err: any) {
+      setResetMessage(err.message)
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md border-0 shadow-xl">
@@ -82,7 +126,13 @@ export default function StudentLoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-sm text-teal-600 hover:underline">Forgot password?</a>
+                <button 
+                  type="button"
+                  onClick={() => setIsForgotPasswordOpen(true)} 
+                  className="text-sm text-teal-600 hover:underline"
+                >
+                  Forgot password?
+                </button>
               </div>
               <Input id="password" type="password" required />
             </div>
@@ -106,6 +156,58 @@ export default function StudentLoginPage() {
           </CardFooter>
         </form>
       </Card>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Enter your email address and we'll send you a temporary password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleForgotPassword}>
+            <div className="space-y-4 py-4">
+              {resetMessage && (
+                <div className={`p-3 text-sm rounded ${resetMessage.includes('sent') ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                  {resetMessage}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="your.email@student.aiu.edu.my"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsForgotPasswordOpen(false)
+                  setResetEmail("")
+                  setResetMessage("")
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-teal-600 hover:bg-teal-700"
+                disabled={resetLoading}
+              >
+                {resetLoading ? "Sending..." : "Send Reset Instructions"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

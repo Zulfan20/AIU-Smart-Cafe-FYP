@@ -77,9 +77,21 @@ export function StudentDashboard() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]) // Store all items for client-side filtering
   const [recommendedItems, setRecommendedItems] = useState<MenuItem[]>([])
   const [bestSellers, setBestSellers] = useState<MenuItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Derive min and max price from priceRange
+  const { minPrice, maxPrice } = useMemo(() => {
+    switch (priceRange) {
+      case "0-5": return { minPrice: 0, maxPrice: 5 }
+      case "5-10": return { minPrice: 5, maxPrice: 10 }
+      case "10-15": return { minPrice: 10, maxPrice: 15 }
+      case "15+": return { minPrice: 15, maxPrice: 999 }
+      default: return { minPrice: 0, maxPrice: 999 }
+    }
+  }, [priceRange])
   
   // Cafe status state
   const [cafeStatus, setCafeStatus] = useState({
@@ -158,27 +170,78 @@ export function StudentDashboard() {
 
   // Reload menu when filters change
   useEffect(() => {
-    loadMenuItems()
-  }, [selectedCategory, searchQuery])
+    if (allMenuItems.length > 0) {
+      // Filter locally instead of fetching from API
+      filterMenuItems()
+    } else {
+      loadMenuItems()
+    }
+  }, [selectedCategory, searchQuery, minPrice, maxPrice])
+
+  const filterMenuItems = () => {
+    let filtered = [...allMenuItems]
+    
+    // Category filter
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter(item => item.category === selectedCategory)
+    }
+    
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(query) ||
+        (item.description && item.description.toLowerCase().includes(query))
+      )
+    }
+    
+    // Price filter
+    if (minPrice > 0 || maxPrice < 50) {
+      filtered = filtered.filter(item => 
+        item.price >= minPrice && item.price <= maxPrice
+      )
+    }
+    
+    setMenuItems(filtered)
+  }
 
   const loadMenuItems = async () => {
     try {
       setIsLoading(true)
-      const filters: any = {}
-      if (selectedCategory !== "All") filters.category = selectedCategory
-      if (searchQuery) filters.search = searchQuery
       
-      const items = await menuAPI.getAll(filters)
+      const items = await menuAPI.getAll({})
       const transformedItems = items.map(transformMenuItem)
-      setMenuItems(transformedItems)
+      setAllMenuItems(transformedItems) // Store all items
       
-      // Load best sellers only when no filters are applied
+      // Cache in localStorage for offline access
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cachedMenuItems', JSON.stringify(transformedItems))
+      }
+      
+      // Apply filters
+      let filtered = transformedItems
+      if (selectedCategory !== "All") {
+        filtered = filtered.filter((item: MenuItem) => item.category === selectedCategory)
+      }
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        filtered = filtered.filter((item: MenuItem) => 
+          item.name.toLowerCase().includes(query) ||
+          (item.description && item.description.toLowerCase().includes(query))
+        )
+      }
+      if (minPrice > 0 || maxPrice < 999) {
+        filtered = filtered.filter((item: MenuItem) => 
+          item.price >= minPrice && item.price <= maxPrice
+        )
+      }
+      setMenuItems(filtered)
+      
+      // Load best sellers
       if (selectedCategory === "All" && !searchQuery) {
-        // Get best sellers (top 4 items by rating and feedback count)
         const sortedByPopularity = [...items]
           .filter((item: any) => item.averageRating > 0)
           .sort((a: any, b: any) => {
-            // Sort by rating first, then by feedback count
             if (b.averageRating !== a.averageRating) {
               return b.averageRating - a.averageRating
             }
@@ -190,7 +253,24 @@ export function StudentDashboard() {
       }
     } catch (error) {
       console.error("Failed to load menu items:", error)
-      toast.error("Failed to load menu items")
+      
+      // Try to load from localStorage if offline
+      if (typeof window !== 'undefined') {
+        const cachedItems = localStorage.getItem('cachedMenuItems')
+        if (cachedItems) {
+          try {
+            const parsedItems = JSON.parse(cachedItems)
+            setAllMenuItems(parsedItems)
+            filterMenuItems()
+            toast.info("Showing offline menu")
+            return
+          } catch (e) {
+            console.error("Failed to parse cached menu:", e)
+          }
+        }
+      }
+      
+      toast.error("Failed to load menu items. Please check your connection.")
     } finally {
       setIsLoading(false)
     }

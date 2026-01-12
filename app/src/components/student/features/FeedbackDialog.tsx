@@ -11,7 +11,7 @@ interface OrderItem {
   name: string
   quantity: number
   price: number
-  feedbackSubmitted: boolean
+  feedbackSubmitted?: boolean
 }
 
 interface Order {

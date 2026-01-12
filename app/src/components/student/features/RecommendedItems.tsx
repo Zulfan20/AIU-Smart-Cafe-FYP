@@ -43,12 +43,12 @@ export function RecommendedItems({ items, onAddToCart }: RecommendedItemsProps) 
                   <h4 className="font-medium text-sm text-balance line-clamp-2">{item.name}</h4>
                   <div className="flex items-center gap-2 my-1">
                     <span className="text-sm font-bold text-emerald-600">RM{item.price.toFixed(2)}</span>
-                    {item.rating && item.rating > 0 && (
+                    {(item as any).rating && (item as any).rating > 0 && (
                       <div className="flex items-center gap-1">
                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-gray-600">{item.rating.toFixed(1)}</span>
-                        {item.reviewCount && item.reviewCount > 0 && (
-                          <span className="text-xs text-gray-400">({item.reviewCount})</span>
+                        <span className="text-xs text-gray-600">{(item as any).rating.toFixed(1)}</span>
+                        {(item as any).reviewCount && (item as any).reviewCount > 0 && (
+                          <span className="text-xs text-gray-400">({(item as any).reviewCount})</span>
                         )}
                       </div>
                     )}

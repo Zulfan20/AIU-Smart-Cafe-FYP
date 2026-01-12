@@ -10,7 +10,8 @@ import {
   BarChart3,
   LogOut,
   Settings,
-  MessageSquare
+  MessageSquare,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -31,6 +32,12 @@ const routes = [
     label: "Menu Management",
     icon: UtensilsCrossed,
     href: "/owner-dashboard/menu",
+    color: "text-teal-100",
+  },
+  {
+    label: "User Management",
+    icon: Users,
+    href: "/owner-dashboard/users",
     color: "text-teal-100",
   },
   {

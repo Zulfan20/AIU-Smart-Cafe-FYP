@@ -4,9 +4,9 @@ import { Star, TrendingUp } from "lucide-react"
 import type { MenuItem } from "@/types/dashboard"
 
 interface BestSellerItemsProps {
-  items: MenuItem[]
+  items: (MenuItem & { rating?: number; reviewCount?: number })[]
   onAddToCart: (item: MenuItem) => void
-  onViewReviews?: (item: MenuItem) => void
+  onViewReviews?: (itemId: string, itemName: string) => void
 }
 
 export function BestSellerItems({ items, onAddToCart, onViewReviews }: BestSellerItemsProps) {
