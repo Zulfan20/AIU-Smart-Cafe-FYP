@@ -74,12 +74,12 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              <Input id="name" placeholder="Ali bin Abu" required />
+              <Input id="name" placeholder="e.g. Zulfan Abidin" required />
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="email">Student Email</Label>
-              <Input id="email" type="email" placeholder="ali@student.aiu.edu.my" required />
+              <Input id="email" type="email" placeholder="e.g. zulfan.abidin@student.aiu.edu.my" required />
             </div>
             
             <div className="space-y-2">

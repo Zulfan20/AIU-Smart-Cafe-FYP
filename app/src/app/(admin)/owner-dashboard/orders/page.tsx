@@ -128,7 +128,7 @@ export default function OrdersPage() {
                   </div>
                   
                   <p className="text-sm font-bold text-emerald-600 mt-1">
-                    Total: RM {(order.totalAmount / 100).toFixed(2)}
+                    Total: RM {order.totalAmount.toFixed(2)}
                   </p>
                 </div>
 

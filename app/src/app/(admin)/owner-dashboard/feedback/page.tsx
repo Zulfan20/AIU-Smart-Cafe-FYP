@@ -13,11 +13,11 @@ interface Feedback {
     _id: string
     name: string
     profilePic?: string
-  }
+  } | null
   itemId: {
     _id: string
     name: string
-  }
+  } | null
   orderId: string
   rating: number
   textReview?: string
@@ -157,7 +157,7 @@ export default function FeedbackPage() {
   // Calculate positive mentions for top item
   const topItemPositiveMentions = topRatedItem 
     ? feedbacks.filter(f => 
-        f.itemId._id === topRatedItem._id && 
+        f.itemId && f.itemId._id === topRatedItem._id && 
         f.sentimentCategory === 'Positive'
       ).length
     : 0
@@ -387,35 +387,41 @@ export default function FeedbackPage() {
             <p className="text-center py-8 text-gray-500">No feedback found</p>
           ) : (
             <div className="space-y-4">
-              {filteredFeedbacks.map((feedback) => (
-                <div
-                  key={feedback._id}
-                  className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {feedback.userId.profilePic ? (
-                        <img
-                          src={feedback.userId.profilePic}
-                          alt={feedback.userId.name}
-                          className="w-10 h-10 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                          <span className="text-emerald-700 font-semibold text-sm">
-                            {feedback.userId.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-gray-900">{feedback.userId.name}</p>
-                          <span className="text-xs text-gray-400">•</span>
-                          <div className="flex items-center text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
-                            <Utensils className="w-3 h-3 mr-1 text-gray-500" />
-                            {feedback.itemId.name}
+              {filteredFeedbacks.map((feedback) => {
+                // Handle null userId case (user might have been deleted)
+                const userName = feedback.userId?.name || 'Unknown User';
+                const userProfilePic = feedback.userId?.profilePic;
+                const itemName = feedback.itemId?.name || 'Unknown Item';
+                
+                return (
+                  <div
+                    key={feedback._id}
+                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {userProfilePic ? (
+                          <img
+                            src={userProfilePic}
+                            alt={userName}
+                            className="w-10 h-10 rounded-full"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                            <span className="text-emerald-700 font-semibold text-sm">
+                              {userName.charAt(0).toUpperCase()}
+                            </span>
                           </div>
-                        </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-gray-900">{userName}</p>
+                            <span className="text-xs text-gray-400">•</span>
+                            <div className="flex items-center text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">
+                              <Utensils className="w-3 h-3 mr-1 text-gray-500" />
+                              {itemName}
+                            </div>
+                          </div>
                         <p className="text-sm text-gray-500">
                           {new Date(feedback.createdAt).toLocaleDateString('en-US', {
                             year: 'numeric',
@@ -465,7 +471,7 @@ export default function FeedbackPage() {
                     )}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>

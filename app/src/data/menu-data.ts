@@ -1,7 +1,7 @@
 import type { MenuItem } from "@/types/dashboard"
 
 // Categories available in the system (matching backend)
-export const categories = ["All", "Main Course", "Drink", "Snack", "Side"]
+export const categories = ["All", "Main Course", "Drink", "Side"]
 
 // Helper function to transform DB MenuItem to display format
 export function transformMenuItem(dbItem: any): MenuItem & { 

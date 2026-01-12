@@ -87,26 +87,41 @@ export async function POST(request) {
         // Fallback to localhost for development
         const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5000';
         
-        console.log(`Calling ML Service at: ${mlServiceUrl}/predict/sentiment`);
+        console.log(`[SENTIMENT] Calling ML Service at: ${mlServiceUrl}/analyze_feedback`);
+        console.log(`[SENTIMENT] Text review: "${textReview}"`);
 
-        const mlResponse = await axios.post(`${mlServiceUrl}/predict/sentiment`, {
-          text: textReview
-        });
+        const mlResponse = await axios.post(`${mlServiceUrl}/analyze_feedback`, {
+          comment: textReview
+        }, { timeout: 5000 });
+
+        console.log(`[SENTIMENT] ML Response:`, mlResponse.data);
 
         // 5. Update the Feedback with ML Results
         if (mlResponse.data) {
-          newFeedback.sentimentScore = mlResponse.data.sentimentScore || 0; // Assuming your API returns this
-          newFeedback.sentimentCategory = mlResponse.data.sentiment; // e.g., "Positive"
+          newFeedback.sentimentScore = mlResponse.data.confidence || 0; // Confidence score (0-1)
+          newFeedback.sentimentCategory = mlResponse.data.sentiment; // "Positive", "Negative", or "Neutral"
+          
+          console.log(`[SENTIMENT] Analysis: ${mlResponse.data.sentiment} (${Math.round(mlResponse.data.confidence * 100)}% confidence)`);
+          console.log(`[SENTIMENT] Saving to database...`);
           
           await newFeedback.save(); // Save the update
+          
+          console.log(`[SENTIMENT] ✓ Saved successfully with category: ${newFeedback.sentimentCategory}`);
         }
 
       } catch (mlError) {
         // CRITICAL: We catch ML errors separately. 
         // If the Python server is sleeping (Render free tier) or down, 
         // we just log it and continue. We DO NOT fail the user's request.
-        console.error('ML Service Connection Error:', mlError.message);
+        console.error('[SENTIMENT] ML Service Connection Error:', mlError.message);
+        console.error('[SENTIMENT] Error details:', {
+          url: mlError.config?.url,
+          code: mlError.code,
+          response: mlError.response?.data
+        });
       }
+    } else {
+      console.log('[SENTIMENT] Skipping - no text review provided');
     }
 
     return NextResponse.json({ 

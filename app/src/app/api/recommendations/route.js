@@ -29,8 +29,8 @@ export async function GET(request) {
     let recommendedKeys = [];
     let mlStatus = 'not_called';
     try {
-      // Python service: POST /recommend with JSON body { user_id }
-      console.log('Calling ML service...');
+      // Python service: POST /recommend with JSON body { user_id } (ai_service.py)
+      console.log('Calling ML service (ai_service.py)...');
       const mlResponse = await axios.post(`${mlServiceUrl}/recommend`, { user_id: String(userId) }, { timeout: 5000 });
       console.log('ML Response received:', JSON.stringify(mlResponse.data));
       mlStatus = mlResponse.data.status || 'success';

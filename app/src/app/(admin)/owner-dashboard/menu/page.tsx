@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Image as ImageIcon, Upload } from "lucide-react"
+import { Plus, Pencil, Trash2, Image as ImageIcon, Upload, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +40,8 @@ export default function MenuPage() {
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("All")
   
   // NEW: Track which item is being edited (null = create mode)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -70,6 +72,16 @@ export default function MenuPage() {
   useEffect(() => {
     fetchMenu()
   }, [])
+
+  // Filtered items based on search and category
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         item.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  const categories = ["All", "Main Course", "Drink", "Side"]
 
   // 2. RESET FORM HELPER
   const resetForm = () => {
@@ -306,8 +318,44 @@ export default function MenuPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => (
+      {/* Search and Category Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Search Bar */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search menu items..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        {/* Category Filter */}
+        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Results Info */}
+      <div className="text-sm text-gray-500">
+        Showing {filteredItems.length} of {items.length} items
+      </div>
+
+      {filteredItems.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No items found matching your criteria.</p>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {filteredItems.map((item) => (
           <Card key={item._id} className="overflow-hidden border-0 shadow-sm hover:shadow-md transition-all">
             <div className="h-40 bg-gray-200 relative">
                 {item.imageUrl ? (
@@ -368,6 +416,7 @@ export default function MenuPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   )
 }

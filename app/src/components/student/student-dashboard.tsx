@@ -27,6 +27,7 @@ import { MenuItemCard } from "@/components/student/features/MenuItemCard"
 import { CategoryFilter } from "@/components/student/features/CategoryFilter"
 import { OrderStatusCard } from "@/components/student/features/OrderStatusCard"
 import { RecommendedItems } from "@/components/student/features/RecommendedItems"
+import { BestSellerItems } from "@/components/student/features/BestSellerItems"
 import { CartDialog } from "@/components/student/features/CartDialog"
 import { ProfileDialog } from "@/components/student/features/ProfileDialog"
 import { OrderHistoryDialog } from "@/components/student/features/OrderHistoryDialog"
@@ -72,6 +73,7 @@ export function StudentDashboard() {
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [searchQuery, setSearchQuery] = useState("")
   const [priceRange, setPriceRange] = useState("all")
+  const [showAllItems, setShowAllItems] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
@@ -89,7 +91,6 @@ export function StudentDashboard() {
   // Dialog states
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false)
   const [orderInstructions, setOrderInstructions] = useState("")
-  const [showAllItems, setShowAllItems] = useState(false)
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false)
   const [feedbackDialogOrder, setFeedbackDialogOrder] = useState<Order | null>(null)
   const [isOrderHistoryOpen, setIsOrderHistoryOpen] = useState(false)
@@ -803,7 +804,7 @@ export function StudentDashboard() {
               </div>
             )}
 
-            {/* Mobile: Order Status and Recommended */}
+            {/* Mobile: Order Status */}
             <div className="lg:hidden space-y-4 mb-6">
               {isAuthenticated && (
                 <OrderStatusCard 
@@ -816,28 +817,7 @@ export function StudentDashboard() {
                   onMarkAsPickedUp={markAsPickedUp}
                 />
               )}
-              <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
             </div>
-
-            {/* Best Sellers Section */}
-            {bestSellers.length > 0 && selectedCategory === "All" && !searchQuery && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
-                      <span className="text-2xl">🏆</span>
-                      Best Sellers
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">Most loved by our customers</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {bestSellers.map((item) => (
-                    <MenuItemCard key={item._id} item={item} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Category Filter */}
             <CategoryFilter
@@ -848,15 +828,8 @@ export function StudentDashboard() {
 
             {/* Menu Items */}
             <div className="mb-6 md:mb-8">
-              <div className="flex items-center justify-between mb-4 md:mb-6">
+              <div className="mb-4 md:mb-6">
                 <h3 className="text-xl md:text-2xl font-bold text-gray-800">Menu Items</h3>
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowAllItems(!showAllItems)}
-                  className="text-gray-900 hover:text-gray-900 hover:bg-gray-100 md:text-emerald-600 md:hover:text-emerald-700 md:hover:bg-emerald-50 text-sm md:text-base font-medium"
-                >
-                  {showAllItems ? "Show Less" : "See All"}
-                </Button>
               </div>
               
               {isLoading ? (
@@ -864,31 +837,92 @@ export function StudentDashboard() {
                   <p className="text-gray-500">Loading menu items...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-                  {(showAllItems ? filteredItems : filteredItems.slice(0, 8)).map((item) => (
-                    <MenuItemCard key={item._id} item={item} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+                    {(showAllItems ? filteredItems : filteredItems.slice(0, 6)).map((item) => (
+                      <MenuItemCard key={item._id} item={item} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
+                    ))}
+                  </div>
+                  
+                  {/* See More button - shows when there are more than 6 items */}
+                  {filteredItems.length > 6 && (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAllItems(!showAllItems)}
+                        className="w-full md:w-auto max-w-xs border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                      >
+                        {showAllItems ? "Show Less" : `See More (${filteredItems.length - 6} more items)`}
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
+
+            {/* Mobile: Best Sellers and Recommended (after menu items when logged in) */}
+            <div className="lg:hidden space-y-4 mb-6">
+              {isAuthenticated ? (
+                <>
+                  {/* Best Sellers */}
+                  {bestSellers.length > 0 && (
+                    <BestSellerItems items={bestSellers} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
+                  )}
+                  
+                  {/* Recommended Items */}
+                  <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+                </>
+              ) : (
+                /* Best Sellers for non-logged in users */
+                bestSellers.length > 0 && (
+                  <BestSellerItems items={bestSellers} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
+                )
+              )}
+            </div>
+
+
           </div>
 
           {/* Desktop: Order Status and Recommended */}
           <div className="hidden lg:block space-y-4 md:space-y-6">
             {isAuthenticated && (
-              <OrderStatusCard 
-                activeOrders={activeOrders} 
-                onGiveFeedback={(orderId) => {
-                  const order = orders.find(o => o._id === orderId)
-                  if (order) setFeedbackDialogOrder(order)
-                }}
-                onViewOrderHistory={() => setIsOrderHistoryOpen(true)}
-                onMarkAsPickedUp={markAsPickedUp}
-              />
+              <>
+                <OrderStatusCard 
+                  activeOrders={activeOrders} 
+                  onGiveFeedback={(orderId) => {
+                    const order = orders.find(o => o._id === orderId)
+                    if (order) setFeedbackDialogOrder(order)
+                  }}
+                  onViewOrderHistory={() => setIsOrderHistoryOpen(true)}
+                  onMarkAsPickedUp={markAsPickedUp}
+                />
+                
+                {/* Recommended Items */}
+                <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+              </>
             )}
-            <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
           </div>
         </div>
+        
+        {/* Desktop: Best Sellers - Full Width Below Menu Items */}
+        {bestSellers.length > 0 && (
+          <div className="hidden lg:block mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  Best Sellers
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">Most loved by our customers</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
+              {bestSellers.map((item) => (
+                <MenuItemCard key={item._id} item={item} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Dialogs */}

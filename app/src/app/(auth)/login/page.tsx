@@ -77,7 +77,7 @@ export default function StudentLoginPage() {
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="ali@student.aiu.edu.my" required />
+              <Input id="email" type="email" placeholder="e.g. zulfan.abidin@student.aiu.edu.my" required />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
