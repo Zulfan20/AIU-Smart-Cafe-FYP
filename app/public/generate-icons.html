@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PWA Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        .preview {
+            margin: 20px 0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AIU Smart Cafe Icon Generator</h1>
+    <p>Click the button below to generate all required PWA icons</p>
+    
+    <button onclick="generateIcons()">Generate Icons</button>
+    
+    <div class="preview" id="preview"></div>
+    <div id="downloads"></div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function generateIcons() {
+            const preview = document.getElementById('preview');
+            const downloads = document.getElementById('downloads');
+            preview.innerHTML = '<h3>Preview:</h3>';
+            downloads.innerHTML = '<h3>Download Icons:</h3>';
+            
+            sizes.forEach(size => {
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                
+                // Draw background
+                ctx.fillStyle = '#10b981';
+                ctx.fillRect(0, 0, size, size);
+                
+                // Draw utensils icon (simplified)
+                ctx.fillStyle = 'white';
+                const centerX = size / 2;
+                const centerY = size / 2;
+                const iconSize = size * 0.5;
+                
+                // Fork
+                ctx.fillRect(centerX - iconSize/3, centerY - iconSize/2, iconSize/15, iconSize);
+                ctx.fillRect(centerX - iconSize/2.5, centerY - iconSize/2, iconSize/15, iconSize/2);
+                ctx.fillRect(centerX - iconSize/5, centerY - iconSize/2, iconSize/15, iconSize/2);
+                
+                // Spoon
+                ctx.beginPath();
+                ctx.arc(centerX + iconSize/4, centerY - iconSize/3, iconSize/8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(centerX + iconSize/5, centerY - iconSize/4, iconSize/15, iconSize * 0.75);
+                
+                // Add to preview (only smaller sizes)
+                if (size <= 192) {
+                    preview.appendChild(canvas.cloneNode());
+                }
+                
+                // Create download link
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `icon-${size}x${size}.png`;
+                    link.textContent = `Download ${size}x${size}`;
+                    link.style.display = 'block';
+                    link.style.margin = '5px';
+                    downloads.appendChild(link);
+                });
+            });
+            
+            downloads.innerHTML += '<p style="color: #059669; font-weight: bold; margin-top: 20px;">✓ Click each link to download, then place all icons in the /public/icons/ folder</p>';
+        }
+    </script>
+</body>
+</html>

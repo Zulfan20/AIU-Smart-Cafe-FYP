@@ -22,6 +22,50 @@ const UserSchema = new mongoose.Schema({
     enum: ['student', 'staff', 'admin'],
     default: 'student',
   },
+  // Account approval status
+  accountStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
+  },
+  approvedAt: {
+    type: Date,
+    required: false,
+  },
+  rejectionReason: {
+    type: String,
+    required: false,
+  },
+  // Additional profile fields
+  studentId: {
+    type: String,
+    required: false,
+  },
+  bio: {
+    type: String,
+    required: false,
+  },
+  gender: {
+    type: String,
+    required: false,
+  },
+  birthday: {
+    type: String,
+    required: false,
+  },
+  phone: {
+    type: String,
+    required: false,
+  },
+  profilePic: {
+    type: String,
+    required: false,
+  },
 }, { timestamps: true });
 
 // Hash password before saving

@@ -5,30 +5,30 @@ import { verifyAuth } from '@/lib/verifyAuth';
 
 // PUT: Update a specific menu item (REQUIRES ADMIN ROLE)
 export async function PUT(request, { params }) {
-  // ---=== 1. SECURITY CHECK (Admin Only) ===---
+  // ---=== 1. SECURITY CHECK ===---
   const auth = await verifyAuth(request, 'admin');
   if (auth.error) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-  // ---===================================---
+  // ---========================---
 
   await dbConnect();
-  const { id } = params; // Get the Item ID from the URL
+  
+  // NEXT.JS 15 FIX: Ensure params are awaited if they are treated as a promise
+  // In some versions, params is a promise, in others it's an object. 
+  // We handle it safely here.
+  const { id } = await params; 
 
   try {
     const updates = await request.json();
 
-    // Basic validation: Ensure we aren't accidentally wiping the name
+    // Basic validation
     if (updates.name === '') {
        return NextResponse.json({ error: 'Item name cannot be empty' }, { status: 400 });
     }
 
-    // Add the admin's ID to track who made the edit
     updates.lastUpdatedBy = auth.user._id;
 
-    // Find the item by ID and update it
-    // { new: true } tells Mongoose to return the *updated* document, not the old one.
-    // { runValidators: true } ensures the new data follows your Schema rules.
     const updatedItem = await MenuItem.findByIdAndUpdate(
       id,
       updates,
@@ -45,7 +45,6 @@ export async function PUT(request, { params }) {
     }, { status: 200 });
 
   } catch (error) {
-    // Handle duplicate name error
     if (error.code === 11000) {
       return NextResponse.json({ error: 'Menu item name already exists.' }, { status: 409 });
     }
@@ -56,15 +55,17 @@ export async function PUT(request, { params }) {
 
 // DELETE: Remove a specific menu item (REQUIRES ADMIN ROLE)
 export async function DELETE(request, { params }) {
-  // ---=== 1. SECURITY CHECK (Admin Only) ===---
+  // ---=== 1. SECURITY CHECK ===---
   const auth = await verifyAuth(request, 'admin');
   if (auth.error) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-  // ---===================================---
+  // ---========================---
 
   await dbConnect();
-  const { id } = params;
+  
+  // NEXT.JS 15 FIX: Await params
+  const { id } = await params;
 
   try {
     const deletedItem = await MenuItem.findByIdAndDelete(id);

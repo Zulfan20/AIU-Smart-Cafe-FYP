@@ -9,7 +9,9 @@ import {
   UtensilsCrossed,
   BarChart3,
   LogOut,
-  Settings
+  Settings,
+  MessageSquare,
+  Users
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -33,9 +35,15 @@ const routes = [
     color: "text-teal-100",
   },
   {
-    label: "Analytics",
-    icon: BarChart3,
-    href: "/owner-dashboard/analytics",
+    label: "User Management",
+    icon: Users,
+    href: "/owner-dashboard/users",
+    color: "text-teal-100",
+  },
+  {
+    label: "Feedback & Reviews",
+    icon: MessageSquare,
+    href: "/owner-dashboard/feedback",
     color: "text-teal-100",
   },
   {
@@ -84,7 +92,22 @@ export function Sidebar() {
         </div>
       </div>
       <div className="px-3 py-2">
-          <Button variant="ghost" className="w-full justify-start text-teal-100 hover:text-white hover:bg-teal-800">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-teal-100 hover:text-white hover:bg-teal-800"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                // Clear admin-specific tokens
+                localStorage.removeItem('adminToken')
+                localStorage.removeItem('adminRole')
+                localStorage.removeItem('adminUser')
+                // Also clear legacy token
+                localStorage.removeItem('token')
+                localStorage.removeItem('userRole')
+                window.location.href = '/admin/login'
+              }
+            }}
+          >
             <LogOut className="h-5 w-5 mr-3" />
             Logout
           </Button>

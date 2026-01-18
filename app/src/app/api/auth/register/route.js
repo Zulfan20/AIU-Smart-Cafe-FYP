@@ -29,7 +29,8 @@ export async function POST(request) {
     await newUser.save();
 
     return NextResponse.json({ 
-      message: 'User created successfully' 
+      message: 'Registration successful! Your account is pending approval. You will be able to login once an admin approves your account.',
+      status: 'pending'
     }, { status: 201 });
 
   } catch (error) {

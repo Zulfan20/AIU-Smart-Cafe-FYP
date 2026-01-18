@@ -5,22 +5,23 @@ import { verifyAuth } from '@/lib/verifyAuth';
 
 // PUT: Update Order Status (Requires Staff/Admin Role)
 export async function PUT(request, { params }) {
-  // ---=== 1. SECURITY CHECK ===---
-  // Only staff or admins can change order status
+  // 1. SECURITY CHECK
   const auth = await verifyAuth(request, 'staff');
   if (auth.error) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
-  // ---========================---
 
   await dbConnect();
-  const { id } = params; // Get Order ID from URL
+
+  // --- NEXT.JS 15 FIX: Await the params object ---
+  const { id } = await params; 
+  // -----------------------------------------------
 
   try {
     const { status } = await request.json();
 
     // 2. Validate the new status
-    const validStatuses = ['Pending', 'Preparing', 'Ready', 'Completed', 'Cancelled'];
+    const validStatuses = ['Pending', 'Preparing', 'Ready', 'Completed', 'Rejected'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ 
         error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
