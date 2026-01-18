@@ -29,33 +29,35 @@ export function InstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handler)
 
-    // Show button anyway after 2 seconds (even if event doesn't fire)
-    const timer = setTimeout(() => {
-      setShowButton(true)
-    }, 2000)
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handler)
-      clearTimeout(timer)
     }
   }, [])
 
   const handleInstall = async () => {
     if (!deferredPrompt) {
-      // Fallback: show instructions
-      alert('To install:\n\n1. Click the ⋮ menu (top-right)\n2. Select "Install AIU Smart Cafe"\n\nOr look for the install icon in the address bar')
-      return
+      return // Don't show anything if prompt isn't available
     }
 
-    deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
+    try {
+      // Show the native install prompt
+      await deferredPrompt.prompt()
+      
+      // Wait for the user's response
+      const { outcome } = await deferredPrompt.userChoice
 
-    if (outcome === 'accepted') {
-      setShowButton(false)
-      setIsInstalled(true)
+      if (outcome === 'accepted') {
+        console.log('App installed successfully')
+        setShowButton(false)
+        setIsInstalled(true)
+      } else {
+        console.log('App installation declined')
+      }
+    } catch (error) {
+      console.error('Installation error:', error)
+    } finally {
+      setDeferredPrompt(null)
     }
-
-    setDeferredPrompt(null)
   }
 
   const handleDismiss = () => {
