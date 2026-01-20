@@ -59,7 +59,8 @@ export default function MenuPage() {
   const fetchMenu = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/menu?maxPrice=1000") 
+      // Owner dashboard should see ALL items (including unavailable ones)
+      const res = await fetch("/api/menu?maxPrice=1000&showAll=true") 
       const data = await res.json()
       setItems(data)
     } catch (error) {
@@ -149,14 +150,20 @@ export default function MenuPage() {
         })
       })
 
-      if (!res.ok) throw new Error("Failed to save item")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('API Error:', errorData)
+        throw new Error(errorData.error || `Failed to save item (${res.status})`)
+      }
 
       setIsDialogOpen(false)
       fetchMenu() 
       resetForm()
+      alert(editingId ? "Item updated successfully!" : "Item created successfully!")
       
     } catch (error) {
-      alert("Error saving item. Please try again.")
+      console.error('Submit Error:', error)
+      alert(`Error saving item: ${error.message}`)
     } finally {
       setIsSubmitting(false)
     }

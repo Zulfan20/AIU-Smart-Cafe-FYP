@@ -9,6 +9,7 @@ export interface MenuItem {
   isAvailable: boolean
   createdAt?: string
   updatedAt?: string
+  averageRating?: number
 }
 
 export interface OrderItem {

@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# ML Models and Large Files
+my_cafe_model/
+my_category_model/
+newml/
+dataset/
+*.h5
+*.pkl
+*.safetensors
+*.bin
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.keras
+
+# Model checkpoints
+checkpoint/
+checkpoints/
+*.ckpt
+logs/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment variables
+.env
+.env.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+logs/

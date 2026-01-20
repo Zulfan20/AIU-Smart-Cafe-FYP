@@ -70,10 +70,11 @@ print("-----------------------------------")
 
 @app.route('/')
 def home():
+    nlp_status = "Active (Hybrid: ML + Rule-based)" if nlp_ready else "Active (Rule-based only)"
     return jsonify({
         "status": "Online",
         "recommendation_engine": "Active (Hybrid)" if mongo_ready else ("Active (ML Only)" if rec_ready else "Inactive"),
-        "nlp_engine": "Active" if nlp_ready else "Inactive",
+        "nlp_engine": nlp_status,
         "database": "Connected" if mongo_ready else "Disconnected"
     })
 
@@ -333,11 +334,81 @@ def recommend():
 # ==========================================
 # ENDPOINT 2: SENTIMENT ANALYSIS
 # ==========================================
+def rule_based_sentiment_analysis(comment):
+    """
+    Fallback rule-based sentiment analysis for low-confidence ML predictions.
+    Uses keyword matching with negation handling for accurate basic sentiment detection.
+    """
+    comment_lower = comment.lower()
+    
+    # Define sentiment keywords
+    positive_keywords = [
+        'good', 'great', 'excellent', 'amazing', 'love', 'best', 'delicious', 
+        'tasty', 'taste', 'perfect', 'wonderful', 'fantastic', 'awesome', 'nice', 
+        'recommend', 'fresh', 'quality', 'enjoyed', 'satisfied', 'pleased',
+        'yummy', 'lovely', 'brilliant', 'superb', 'outstanding', 'exceptional',
+        'favorite', 'favourite', 'incredible', 'flavorful', 'flavourful',
+        'crispy', 'juicy', 'tender', 'moist', 'rich', 'savory', 'savoury', 'like'
+    ]
+    
+    negative_keywords = [
+        'bad', 'terrible', 'awful', 'worst', 'hate', 'poor', 'disgusting',
+        'horrible', 'nasty', 'disappointing', 'disappointed', 'unacceptable',
+        'cold', 'stale', 'bland', 'overpriced', 'slow', 'rude', 'dirty',
+        'gross', 'sucks', 'horrible', 'soggy', 'burnt', 'raw', 'undercooked',
+        'overcooked', 'tasteless', 'flavorless', 'flavourless', 'dislike'
+    ]
+    
+    # Negation words that flip sentiment
+    negation_words = ['not', "don't", "dont", "doesn't", "doesnt", "didn't", 
+                      "didnt", "no", "never", "nothing", "neither", "nobody", 
+                      "nowhere", "hardly", "barely", "scarcely"]
+    
+    # Split into words for context-aware analysis
+    words = comment_lower.split()
+    
+    positive_count = 0
+    negative_count = 0
+    
+    # Check each word with negation context (look 1-2 words back)
+    for i, word in enumerate(words):
+        # Check if previous 1-2 words contain negation
+        has_negation = False
+        if i > 0 and any(neg in words[i-1] for neg in negation_words):
+            has_negation = True
+        if i > 1 and any(neg in words[i-2] for neg in negation_words):
+            has_negation = True
+        
+        # Check if current word is positive
+        if any(pos in word for pos in positive_keywords):
+            if has_negation:
+                negative_count += 1  # Negated positive = negative
+            else:
+                positive_count += 1
+        
+        # Check if current word is negative
+        elif any(neg in word for neg in negative_keywords):
+            if has_negation:
+                positive_count += 1  # Negated negative = positive (e.g., "not bad")
+            else:
+                negative_count += 1
+    
+    # Determine sentiment based on counts
+    if positive_count > negative_count:
+        sentiment = 'Positive'
+        confidence = min(0.6 + (positive_count * 0.1), 0.95)
+    elif negative_count > positive_count:
+        sentiment = 'Negative'
+        confidence = min(0.6 + (negative_count * 0.1), 0.95)
+    else:
+        sentiment = 'Neutral'
+        confidence = 0.5
+    
+    return sentiment, confidence
+
+
 @app.route('/analyze_feedback', methods=['POST'])
 def analyze_feedback():
-    if not nlp_ready:
-        return jsonify({"error": "NLP Engine is offline"}), 500
-
     try:
         data = request.get_json()
         comment = data.get('comment')
@@ -345,13 +416,28 @@ def analyze_feedback():
         if not comment:
             return jsonify({"error": "No comment provided"}), 400
         
-        seq = tokenizer.texts_to_sequences([comment])
-        padded = pad_sequences(seq, maxlen=100)
-        pred = sentiment_model.predict(padded, verbose=0)
-        label_idx = np.argmax(pred)
-        labels = {0: 'Negative', 1: 'Neutral', 2: 'Positive'}
-        result = labels[label_idx]
-        confidence = float(np.max(pred))
+        # Hybrid approach: ML primary, rule-based fallback
+        if nlp_ready:
+            seq = tokenizer.texts_to_sequences([comment])
+            padded = pad_sequences(seq, maxlen=100)
+            pred = sentiment_model.predict(padded, verbose=0)
+            label_idx = np.argmax(pred)
+            labels = {0: 'Negative', 1: 'Neutral', 2: 'Positive'}
+            ml_result = labels[label_idx]
+            ml_confidence = float(np.max(pred))
+            
+            # Use ML if confidence is high (>= 60%), otherwise use rule-based
+            if ml_confidence >= 0.6:
+                result = ml_result
+                confidence = ml_confidence
+                print(f"[SENTIMENT] ML Analysis (High Confidence): {result} ({confidence:.2f})")
+            else:
+                result, confidence = rule_based_sentiment_analysis(comment)
+                print(f"[SENTIMENT] ML confidence too low ({ml_confidence:.2f}), using Rule-based: {result} ({confidence:.2f})")
+        else:
+            # ML not available, use rule-based
+            result, confidence = rule_based_sentiment_analysis(comment)
+            print(f"[SENTIMENT] Rule-based Analysis (ML offline): {result} ({confidence:.2f})")
         
         return jsonify({
             "comment": comment,

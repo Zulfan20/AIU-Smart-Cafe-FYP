@@ -20,7 +20,7 @@ export async function GET(request) {
 
   try {
     const userId = auth.user._id;
-    const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5000';
+    const mlServiceUrl = process.env.SENTIMENT_SERVICE_URL || 'http://127.0.0.1:5001';
 
     console.log('=== Recommendations API Called ===');
     console.log('User ID:', userId);
@@ -29,8 +29,8 @@ export async function GET(request) {
     let recommendedKeys = [];
     let mlStatus = 'not_called';
     try {
-      // Python service: POST /recommend with JSON body { user_id } (ai_service.py)
-      console.log('Calling ML service (ai_service.py)...');
+      // Updated service on port 5001: POST /recommend with JSON body { user_id } (ai_service1.py)
+      console.log('Calling ML service (ai_service1.py on port 5001)...');
       const mlResponse = await axios.post(`${mlServiceUrl}/recommend`, { user_id: String(userId) }, { timeout: 5000 });
       console.log('ML Response received:', JSON.stringify(mlResponse.data));
       mlStatus = mlResponse.data.status || 'success';

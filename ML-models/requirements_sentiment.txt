@@ -1,0 +1,8 @@
+# Requirements for AI Service (Sentiment, Recommendations & Visual Search)
+flask>=3.0.0
+flask-cors>=4.0.0
+transformers>=4.35.0
+torch>=2.0.0
+tensorflow>=2.0.0
+pillow>=10.0.0
+numpy>=1.24.0

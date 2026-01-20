@@ -1,54 +1,368 @@
+# Sentiment Analysis & Recommendation & Visual Search API for AIU Smart Cafe
 from flask import Flask, request, jsonify
-import tensorflow as tf
-import pickle
+from flask_cors import CORS
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoImageProcessor, AutoModelForImageClassification
+import torch
 import numpy as np
+import pickle
+import tensorflow as tf
+from PIL import Image
+import io
 
+# Initialize Flask App
 app = Flask(__name__)
+CORS(app)  # Enable CORS for Next.js
 
-# Load the model and encoders
-# Load without compiling since we only need it for inference
-model = tf.keras.models.load_model('recommender_model.h5', compile=False)
-with open('user_encoder.pkl', 'rb') as f:
-    user_enc = pickle.load(f)
-with open('item_encoder.pkl', 'rb') as f:
-    item_enc = pickle.load(f)
+# ==========================================
+# SENTIMENT ANALYSIS MODEL
+# ==========================================
+SENTIMENT_MODEL_PATH = "./newml"
+
+print("="*50)
+print("Loading Sentiment Analysis Model...")
+print(f"Model Path: {SENTIMENT_MODEL_PATH}")
+print("="*50)
+
+try:
+    tokenizer = AutoTokenizer.from_pretrained(SENTIMENT_MODEL_PATH)
+    sentiment_model = AutoModelForSequenceClassification.from_pretrained(SENTIMENT_MODEL_PATH)
+    sentiment_model.eval()  # Set to evaluation mode
+    print("✅ Sentiment Model loaded successfully!")
+    sentiment_ready = True
+except Exception as e:
+    print(f"❌ Error loading sentiment model: {e}")
+    sentiment_ready = False
+
+print("="*50)
+print("Loading Recommendation Models...")
+print("="*50)
+
+# Load recommendation models
+try:
+    rec_model = tf.keras.models.load_model('recommendation_model.h5', compile=False)
+    with open('user_encoder.pkl', 'rb') as f:
+        user_encoder = pickle.load(f)
+    with open('item_encoder.pkl', 'rb') as f:
+        item_encoder = pickle.load(f)
+    with open('user_history.pkl', 'rb') as f:
+        user_history = pickle.load(f)
+    
+    num_items = len(item_encoder.classes_)
+    all_item_indices = np.arange(num_items)
+    print("✅ Recommendation Models loaded successfully!")
+    rec_ready = True
+except Exception as e:
+    print(f"❌ Error loading recommendation models: {e}")
+    rec_ready = False
+
+print("="*50)
+print("Loading Visual Search Model...")
+print("="*50)
+
+# Load visual search model
+VISUAL_MODEL_PATH = "./my_category_model"
+try:
+    image_processor = AutoImageProcessor.from_pretrained(VISUAL_MODEL_PATH)
+    visual_model = AutoModelForImageClassification.from_pretrained(VISUAL_MODEL_PATH)
+    visual_model.eval()
+    print("✅ Visual Search Model loaded successfully!")
+    visual_ready = True
+except Exception as e:
+    print(f"❌ Error loading visual search model: {e}")
+    visual_ready = False
+
+print("="*50)
 
 @app.route('/', methods=['GET'])
-def health_check():
+def home():
+    """Health check endpoint"""
     return jsonify({
-        "status": "running",
-        "service": "AI Recommendation Service",
-        "version": "1.0",
-        "endpoints": {
-            "predict": "/predict (POST)"
-        },
-        "model_info": {
-            "total_items": len(item_enc.classes_),
-            "total_users": len(user_enc.classes_)
-        }
+        "status": "Online",
+        "service": "Sentiment Analysis, Recommendations & Visual Search",
+        "sentiment_model": "Ready" if sentiment_ready else "Error",
+        "recommendation_model": "Ready" if rec_ready else "Error",
+        "visual_search_model": "Ready" if visual_ready else "Error",
+        "sentiment_model_path": SENTIMENT_MODEL_PATH
     })
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.get_json()
-    user_id = data.get('user_id')
+
+@app.route('/analyze_feedback', methods=['POST'])
+def analyze_feedback():
+    """
+    Analyze sentiment of feedback text
     
-    # 1. Encode user_id
-    u_idx = user_enc.transform([user_id])[0]
+    Request body:
+    {
+        "comment": "The food was amazing!"
+    }
     
-    # 2. Prepare inputs for all items
-    num_items = len(item_enc.classes_)
-    item_indices = np.arange(num_items)
-    user_input = np.array([u_idx] * num_items)
+    Response:
+    {
+        "comment": "The food was amazing!",
+        "sentiment": "Positive",
+        "confidence": 0.95
+    }
+    """
+    if not sentiment_ready:
+        return jsonify({
+            "error": "Sentiment Model not loaded. Please check server logs."
+        }), 503
     
-    # 3. Predict
-    predictions = model.predict([user_input, item_indices], verbose=0).flatten()
+    try:
+        data = request.get_json()
+        comment = data.get('comment', '').strip()
+        
+        if not comment:
+            return jsonify({"error": "No comment provided"}), 400
+        
+        # Tokenize input
+        encoded_input = tokenizer(comment, return_tensors='pt', 
+                                 truncation=True, padding=True, max_length=512)
+        
+        # Predict
+        with torch.no_grad():
+            outputs = sentiment_model(**encoded_input)
+            predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+            predicted_class = torch.argmax(predictions, dim=-1).item()
+            confidence = predictions[0][predicted_class].item()
+        
+        # Map class to sentiment label
+        sentiment_map = {
+            0: "Negative",
+            1: "Neutral",
+            2: "Positive"
+        }
+        
+        sentiment = sentiment_map.get(predicted_class, "Unknown")
+        
+        print(f"[ANALYSIS] '{comment[:50]}...' → {sentiment} ({confidence:.2f})")
+        
+        return jsonify({
+            "comment": comment,
+            "sentiment": sentiment,
+            "confidence": round(confidence, 4)
+        })
     
-    # 4. Get Top 5
-    top_indices = predictions.argsort()[-5:][::-1]
-    recommendations = item_enc.inverse_transform(top_indices)
+    except Exception as e:
+        print(f"[ERROR] {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/batch_analyze', methods=['POST'])
+def batch_analyze():
+    """
+    Analyze multiple feedback comments at once
     
-    return jsonify({"recommendations": recommendations.tolist()})
+    Request body:
+    {
+        "comments": ["Great food!", "Bad service", "Average meal"]
+    }
+    """
+    if not model_ready:
+        return jsonify({"error": "Model not loaded"}), 503
+    
+    try:
+        data = request.get_json()
+        comments = data.get('comments', [])
+        
+        if not comments or not isinstance(comments, list):
+            return jsonify({"error": "Please provide a list of comments"}), 400
+        
+        results = []
+        
+        for comment in comments:
+            if not comment or not comment.strip():
+                results.append({
+                    "comment": comment,
+                    "sentiment": "Unknown",
+                    "confidence": 0,
+                    "error": "Empty comment"
+                })
+                continue
+            
+            # Tokenize and predict
+            encoded_input = tokenizer(comment, return_tensors='pt',
+                                    truncation=True, padding=True, max_length=512)
+            
+            with torch.no_grad():
+                outputs = sentiment_model(**encoded_input)
+                predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                predicted_class = torch.argmax(predictions, dim=-1).item()
+                confidence = predictions[0][predicted_class].item()
+            
+            sentiment_map = {0: "Negative", 1: "Neutral", 2: "Positive"}
+            sentiment = sentiment_map.get(predicted_class, "Unknown")
+            
+            results.append({
+                "comment": comment,
+                "sentiment": sentiment,
+                "confidence": round(confidence, 4)
+            })
+        
+        return jsonify({"results": results})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# RECOMMENDATION ENDPOINTS
+# ==========================================
+
+@app.route('/recommend', methods=['POST'])
+def recommend():
+    """
+    Get personalized item recommendations for a user
+    
+    Request body:
+    {
+        "user_id": "675f3da3b7e0c957a5e66fe9"
+    }
+    
+    Response:
+    {
+        "user_id": "675f3da3b7e0c957a5e66fe9",
+        "recommendations": ["Item1", "Item2", "Item3", "Item4", "Item5"],
+        "status": "Success"
+    }
+    """
+    if not rec_ready:
+        return jsonify({
+            "error": "Recommendation model not loaded. Please check server logs."
+        }), 503
+    
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
+        
+        # Check if user exists in encoder
+        if user_id not in user_encoder.classes_:
+            print(f"[RECOMMEND] User {user_id} not in training data - returning popular items")
+            # Return empty for unknown users (frontend will handle fallback)
+            return jsonify({
+                "user_id": user_id,
+                "recommendations": [],
+                "status": "User not found - returning empty list"
+            })
+        
+        # Get user index
+        user_idx = user_encoder.transform([user_id])[0]
+        
+        # Create input: user index repeated for all items
+        user_input = np.full(num_items, user_idx)
+        
+        # Make predictions
+        predictions = rec_model.predict([user_input, all_item_indices], verbose=0).flatten()
+        
+        # Get top 5 recommendations
+        top_indices = np.argsort(predictions)[-5:][::-1]
+        top_items = item_encoder.inverse_transform(top_indices)
+        
+        print(f"[RECOMMEND] User {user_id} → {list(top_items)}")
+        
+        return jsonify({
+            "user_id": user_id,
+            "recommendations": list(top_items),
+            "status": "Success"
+        })
+    
+    except Exception as e:
+        print(f"[ERROR] Recommendation error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ==========================================
+# VISUAL SEARCH ENDPOINT
+# ==========================================
+
+@app.route('/visual_search', methods=['POST'])
+def visual_search():
+    """
+    Search for menu items by uploading an image
+    
+    Request: multipart/form-data with 'image' file
+    
+    Response:
+    {
+        "predicted_category": "Main Course",
+        "confidence": 0.95,
+        "all_predictions": {
+            "Main Course": 0.95,
+            "Drinks": 0.03,
+            "Desserts": 0.02
+        }
+    }
+    """
+    if not visual_ready:
+        return jsonify({
+            "error": "Visual Search model not loaded. Please check server logs."
+        }), 503
+    
+    try:
+        # Check if image file is present
+        if 'image' not in request.files:
+            return jsonify({"error": "No image file provided"}), 400
+        
+        file = request.files['image']
+        
+        if file.filename == '':
+            return jsonify({"error": "No image file selected"}), 400
+        
+        # Read and process image
+        image_bytes = file.read()
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        
+        # Preprocess image
+        inputs = image_processor(images=image, return_tensors="pt")
+        
+        # Make prediction
+        with torch.no_grad():
+            outputs = visual_model(**inputs)
+            predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
+        
+        # Get predicted class
+        predicted_idx = torch.argmax(predictions).item()
+        confidence = predictions[predicted_idx].item()
+        
+        # Get all predictions (sorted by confidence)
+        all_predictions = {}
+        for idx, score in enumerate(predictions.tolist()):
+            label = visual_model.config.id2label.get(idx, f"Class {idx}")
+            all_predictions[label] = round(score, 4)
+        
+        # Sort by confidence
+        all_predictions = dict(sorted(all_predictions.items(), key=lambda x: x[1], reverse=True))
+        
+        predicted_category = visual_model.config.id2label.get(predicted_idx, "Unknown")
+        
+        print(f"[VISUAL SEARCH] Image analyzed → {predicted_category} ({confidence:.2f})")
+        
+        return jsonify({
+            "predicted_category": predicted_category,
+            "confidence": round(confidence, 4),
+            "all_predictions": all_predictions
+        })
+    
+    except Exception as e:
+        print(f"[ERROR] Visual search error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    print("\n" + "="*50)
+    print("🚀 AI Service: Sentiment, Recommendations & Visual Search")
+    print("Port: 5001")
+    print("="*50)
+    print("📍 Sentiment Endpoints:")
+    print("  POST /analyze_feedback  - Single feedback analysis")
+    print("  POST /batch_analyze     - Batch sentiment analysis")
+    print("\n📍 Recommendation Endpoints:")
+    print("  POST /recommend         - Get personalized recommendations")
+    print("\n📍 Visual Search Endpoints:")
+    print("  POST /visual_search     - Search menu items by image")
+    print("="*50 + "\n")
+    
+    app.run(host='0.0.0.0', port=5001, debug=True)

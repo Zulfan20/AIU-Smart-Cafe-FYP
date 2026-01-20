@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Search, User, SlidersHorizontal, MenuIcon, ChevronDown, History, Clock } from "lucide-react"
+import { Search, User, SlidersHorizontal, MenuIcon, ChevronDown, History, Clock, Camera } from "lucide-react"
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { toast } from "sonner"
 
@@ -33,6 +33,7 @@ import { ProfileDialog } from "@/components/student/features/ProfileDialog"
 import { OrderHistoryDialog } from "@/components/student/features/OrderHistoryDialog"
 import { FeedbackDialog } from "@/components/student/features/FeedbackDialog"
 import { ReviewsDialog } from "@/components/student/features/ReviewsDialog"
+import VisualSearch from "@/components/student/features/visual-search"
 
 export function StudentDashboard() {
   const router = useRouter()
@@ -72,6 +73,7 @@ export function StudentDashboard() {
 
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [searchQuery, setSearchQuery] = useState("")
+  const [showVisualSearch, setShowVisualSearch] = useState(false)
   const [priceRange, setPriceRange] = useState("all")
   const [showAllItems, setShowAllItems] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
@@ -213,11 +215,6 @@ export function StudentDashboard() {
       const transformedItems = items.map(transformMenuItem)
       setAllMenuItems(transformedItems) // Store all items
       
-      // Cache in localStorage for offline access
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('cachedMenuItems', JSON.stringify(transformedItems))
-      }
-      
       // Apply filters
       let filtered = transformedItems
       if (selectedCategory !== "All") {
@@ -253,23 +250,6 @@ export function StudentDashboard() {
       }
     } catch (error) {
       console.error("Failed to load menu items:", error)
-      
-      // Try to load from localStorage if offline
-      if (typeof window !== 'undefined') {
-        const cachedItems = localStorage.getItem('cachedMenuItems')
-        if (cachedItems) {
-          try {
-            const parsedItems = JSON.parse(cachedItems)
-            setAllMenuItems(parsedItems)
-            filterMenuItems()
-            toast.info("Showing offline menu")
-            return
-          } catch (e) {
-            console.error("Failed to parse cached menu:", e)
-          }
-        }
-      }
-      
       toast.error("Failed to load menu items. Please check your connection.")
     } finally {
       setIsLoading(false)
@@ -334,10 +314,18 @@ export function StudentDashboard() {
       const token = typeof window !== 'undefined' ? localStorage.getItem('studentToken') : null
       if (!token) {
         console.warn("No authentication token found for loading orders")
+        setOrders([])
         return
       }
       
       const orderData = await ordersAPI.getMyOrders()
+      
+      // Handle unauthenticated response (empty array)
+      if (!orderData || orderData.length === 0) {
+        setOrders([])
+        return
+      }
+      
       // Orders now have feedbackSubmitted flag per item from API
       const ordersWithFeedback = orderData.map((order: Order) => ({
         ...order,
@@ -355,8 +343,10 @@ export function StudentDashboard() {
         console.warn("Authentication failed - token may be invalid")
         handleTokenExpiration()
       } else {
-        toast.error("Failed to load order history")
+        // Don't show error toast for unauthenticated users
+        console.warn("Order loading failed - user may not be authenticated")
       }
+      setOrders([])
     }
   }
 
@@ -367,10 +357,20 @@ export function StudentDashboard() {
       if (!token) {
         console.warn("No authentication token found for loading profile")
         setIsAuthenticated(false)
+        setStudentProfile(null)
         return
       }
       
       const profile = await authAPI.getProfile()
+      
+      // Handle unauthenticated response (null)
+      if (!profile) {
+        console.warn("Profile not found - user may not be authenticated")
+        setIsAuthenticated(false)
+        setStudentProfile(null)
+        return
+      }
+      
       setStudentProfile(profile)
       setIsAuthenticated(true)
     } catch (error: any) {
@@ -383,8 +383,10 @@ export function StudentDashboard() {
         handleTokenExpiration()
       } else {
         // If profile fails, user might not be authenticated
-        setIsAuthenticated(false)
+        console.warn("Profile loading failed - user may not be authenticated")
       }
+      setIsAuthenticated(false)
+      setStudentProfile(null)
     }
   }
 
@@ -754,6 +756,17 @@ export function StudentDashboard() {
                 />
               </div>
 
+              {/* Visual Search Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowVisualSearch(true)}
+                className="bg-white hover:bg-gray-100 shadow-sm h-10 md:h-11 px-3"
+                title="Visual Search"
+              >
+                <Camera className="w-4 h-4 md:w-5 md:h-5" />
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1036,6 +1049,14 @@ export function StudentDashboard() {
         itemName={reviewsDialogState.itemName}
         onClose={() => setReviewsDialogState({ isOpen: false, itemId: null, itemName: "" })}
       />
+
+      {/* Visual Search Dialog */}
+      <Sheet open={showVisualSearch} onOpenChange={setShowVisualSearch}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetTitle>Visual Search</SheetTitle>
+          <VisualSearch onAddToCart={addToCart} />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

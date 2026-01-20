@@ -5,6 +5,7 @@ import Feedback from '@/models/feedback.model';
 
 // GET: Fetch menu items (Public - No Auth Required)
 // Supports filtering: /api/menu?category=Drink&search=nasi&maxPrice=10
+// Supports showAll parameter for admin/owner to see unavailable items
 export async function GET(request) {
   await dbConnect();
 
@@ -14,11 +15,15 @@ export async function GET(request) {
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const maxPrice = searchParams.get('maxPrice');
+    const showAll = searchParams.get('showAll'); // Admin/Owner can see all items
     
     // 2. Build the MongoDB Query Object
-    const query = {
-      isAvailable: true, // Default: Only show items that are currently available
-    };
+    const query = {};
+    
+    // Only filter by availability if NOT showing all (i.e., for public/student view)
+    if (!showAll || showAll !== 'true') {
+      query.isAvailable = true; // Default: Only show items that are currently available
+    }
 
     // Add Category Filter
     if (category && category !== 'All') {
