@@ -65,7 +65,7 @@ export function StudentDashboard() {
   }
 
   // State management
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>({
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>({
     name: "Guest",
     email: "",
     role: "student",
@@ -564,7 +564,7 @@ export function StudentDashboard() {
   const saveProfile = async (profile: Partial<StudentProfile>) => {
     try {
       await authAPI.updateProfile(profile)
-      setStudentProfile((prev) => ({ ...prev, ...profile }))
+      setStudentProfile((prev) => prev ? ({ ...prev, ...profile }) : null)
       setIsProfileDialogOpen(false)
       toast.success("Profile updated successfully!")
     } catch (error: any) {
@@ -582,7 +582,7 @@ export function StudentDashboard() {
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        setStudentProfile((prev) => ({ ...prev, profilePic: reader.result as string }))
+        setStudentProfile((prev) => prev ? ({ ...prev, profilePic: reader.result as string }) : null)
       }
       reader.readAsDataURL(file)
     }
@@ -846,7 +846,7 @@ export function StudentDashboard() {
             {/* Welcome Banner */}
             <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 rounded-xl p-6 md:p-8 mb-6 text-white shadow-lg">
               <h2 className="text-2xl md:text-3xl font-bold mb-2 text-balance">
-                Welcome{isAuthenticated ? ` back, ${studentProfile.name}` : ' to AIU Smart Café'}!
+                Welcome{isAuthenticated && studentProfile ? ` back, ${studentProfile.name}` : ' to AIU Smart Café'}!
               </h2>
               <p className="text-emerald-50 text-base md:text-lg text-pretty">
                 Discover fresh, sustainable meals tailored for you
@@ -1025,7 +1025,7 @@ export function StudentDashboard() {
           setIsProfileDialogOpen(open)
           if (!open) setIsEditingProfile(false)
         }}
-        profile={studentProfile}
+        profile={studentProfile || { name: "Guest", email: "", role: "student" }}
         onProfileChange={setStudentProfile}
         onSaveProfile={saveProfile}
         onProfilePicUpload={handleProfilePicUpload}
