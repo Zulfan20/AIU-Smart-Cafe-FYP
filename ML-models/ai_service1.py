@@ -27,33 +27,103 @@ try:
     tokenizer = AutoTokenizer.from_pretrained(SENTIMENT_MODEL_PATH)
     sentiment_model = AutoModelForSequenceClassification.from_pretrained(SENTIMENT_MODEL_PATH)
     sentiment_model.eval()  # Set to evaluation mode
-    print("✅ Sentiment Model loaded successfully!")
+    print("[OK] Sentiment Model loaded successfully!")
     sentiment_ready = True
 except Exception as e:
-    print(f"❌ Error loading sentiment model: {e}")
+    print(f"[ERROR] Error loading sentiment model: {e}")
     sentiment_ready = False
 
 print("="*50)
 print("Loading Recommendation Models...")
 print("="*50)
 
-# Load recommendation models
+# Load NEW recommendation model (recommender_model.h5 or recommender_mode.h5 + recommender_data.pkl)
 try:
-    rec_model = tf.keras.models.load_model('recommendation_model.h5', compile=False)
-    with open('user_encoder.pkl', 'rb') as f:
-        user_encoder = pickle.load(f)
-    with open('item_encoder.pkl', 'rb') as f:
-        item_encoder = pickle.load(f)
-    with open('user_history.pkl', 'rb') as f:
-        user_history = pickle.load(f)
+    print("Attempting to load new recommender model...")
+    # Try both possible filenames
+    model_file = None
+    for filename in ['recommender_model.h5', 'recommender_mode.h5']:
+        try:
+            rec_model = tf.keras.models.load_model(filename, compile=False)
+            model_file = filename
+            print(f"   Loaded model from: {filename}")
+            break
+        except:
+            continue
+    
+    if model_file is None:
+        raise FileNotFoundError("Neither recommender_model.h5 nor recommender_mode.h5 found")
+    
+    with open('recommender_data.pkl', 'rb') as f:
+        recommender_data = pickle.load(f)
+    
+    # Extract encoders from pickle file
+    # Check what keys are available in the pickle
+    if isinstance(recommender_data, dict):
+        # Try common key names
+        user_encoder = (recommender_data.get('user_encoder') or 
+                       recommender_data.get('user_le') or 
+                       recommender_data.get('user'))
+        item_encoder = (recommender_data.get('item_encoder') or 
+                       recommender_data.get('item_le') or 
+                       recommender_data.get('item'))
+    else:
+        # If it's a tuple or list
+        user_encoder = recommender_data[0] if len(recommender_data) > 0 else None
+        item_encoder = recommender_data[1] if len(recommender_data) > 1 else None
+    
+    if user_encoder is None or item_encoder is None:
+        raise ValueError("Could not extract encoders from recommender_data.pkl")
     
     num_items = len(item_encoder.classes_)
     all_item_indices = np.arange(num_items)
-    print("✅ Recommendation Models loaded successfully!")
+    
+    print("[OK] NEW Recommendation Model loaded successfully!")
+    print(f"   - Users in encoder: {len(user_encoder.classes_)}")
+    print(f"   - Items in encoder: {num_items}")
     rec_ready = True
+    
+except FileNotFoundError:
+    print("[WARNING] New model files not found, trying old model as fallback...")
+    try:
+        # Fallback to old model
+        rec_model = tf.keras.models.load_model('recommendation_model.h5', compile=False)
+        with open('user_encoder.pkl', 'rb') as f:
+            user_encoder = pickle.load(f)
+        with open('item_encoder.pkl', 'rb') as f:
+            item_encoder = pickle.load(f)
+        with open('user_history.pkl', 'rb') as f:
+            user_history = pickle.load(f)
+        
+        num_items = len(item_encoder.classes_)
+        all_item_indices = np.arange(num_items)
+        print("[OK] OLD Recommendation Model loaded successfully (fallback)")
+        rec_ready = True
+    except Exception as e:
+        print(f"[ERROR] Error loading old recommendation models: {e}")
+        rec_ready = False
+        
 except Exception as e:
-    print(f"❌ Error loading recommendation models: {e}")
-    rec_ready = False
+    print(f"[ERROR] Error loading new recommendation model: {e}")
+    print(f"   Error type: {type(e).__name__}")
+    print(f"   Trying old model as fallback...")
+    try:
+        # Fallback to old model
+        rec_model = tf.keras.models.load_model('recommendation_model.h5', compile=False)
+        with open('user_encoder.pkl', 'rb') as f:
+            user_encoder = pickle.load(f)
+        with open('item_encoder.pkl', 'rb') as f:
+            item_encoder = pickle.load(f)
+        with open('user_history.pkl', 'rb') as f:
+            user_history = pickle.load(f)
+        
+        num_items = len(item_encoder.classes_)
+        all_item_indices = np.arange(num_items)
+        print("[OK] OLD Recommendation Model loaded successfully (fallback)")
+        rec_ready = True
+    except Exception as fallback_error:
+        print(f"[ERROR] Error loading old recommendation models: {fallback_error}")
+        rec_ready = False
 
 print("="*50)
 print("Loading Visual Search Model...")
@@ -65,10 +135,10 @@ try:
     image_processor = AutoImageProcessor.from_pretrained(VISUAL_MODEL_PATH)
     visual_model = AutoModelForImageClassification.from_pretrained(VISUAL_MODEL_PATH)
     visual_model.eval()
-    print("✅ Visual Search Model loaded successfully!")
+    print("[OK] Visual Search Model loaded successfully!")
     visual_ready = True
 except Exception as e:
-    print(f"❌ Error loading visual search model: {e}")
+    print(f"[ERROR] Error loading visual search model: {e}")
     visual_ready = False
 
 print("="*50)
@@ -135,7 +205,7 @@ def analyze_feedback():
         
         sentiment = sentiment_map.get(predicted_class, "Unknown")
         
-        print(f"[ANALYSIS] '{comment[:50]}...' → {sentiment} ({confidence:.2f})")
+        print(f"[ANALYSIS] '{comment[:50]}...' -> {sentiment} ({confidence:.2f})")
         
         return jsonify({
             "comment": comment,
@@ -261,7 +331,7 @@ def recommend():
         top_indices = np.argsort(predictions)[-5:][::-1]
         top_items = item_encoder.inverse_transform(top_indices)
         
-        print(f"[RECOMMEND] User {user_id} → {list(top_items)}")
+        print(f"[RECOMMEND] User {user_id} -> {list(top_items)}")
         
         return jsonify({
             "user_id": user_id,
@@ -338,7 +408,7 @@ def visual_search():
         
         predicted_category = visual_model.config.id2label.get(predicted_idx, "Unknown")
         
-        print(f"[VISUAL SEARCH] Image analyzed → {predicted_category} ({confidence:.2f})")
+        print(f"[VISUAL SEARCH] Image analyzed -> {predicted_category} ({confidence:.2f})")
         
         return jsonify({
             "predicted_category": predicted_category,
@@ -353,15 +423,15 @@ def visual_search():
 
 if __name__ == '__main__':
     print("\n" + "="*50)
-    print("🚀 AI Service: Sentiment, Recommendations & Visual Search")
+    print("AI Service: Sentiment, Recommendations & Visual Search")
     print("Port: 5001")
     print("="*50)
-    print("📍 Sentiment Endpoints:")
+    print("Sentiment Endpoints:")
     print("  POST /analyze_feedback  - Single feedback analysis")
     print("  POST /batch_analyze     - Batch sentiment analysis")
-    print("\n📍 Recommendation Endpoints:")
+    print("\nRecommendation Endpoints:")
     print("  POST /recommend         - Get personalized recommendations")
-    print("\n📍 Visual Search Endpoints:")
+    print("\nVisual Search Endpoints:")
     print("  POST /visual_search     - Search menu items by image")
     print("="*50 + "\n")
     

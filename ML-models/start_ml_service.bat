@@ -1,20 +1,27 @@
 @echo off
 echo ============================================================
-echo Starting Pure ML Service with Real MongoDB Integration
+echo Starting AI Service - All Models Combined
 echo ============================================================
 echo.
-echo This service combines:
-echo   - TensorFlow Neural Network (Pre-trained ML Model)
-echo   - Real-time MongoDB Data (Your actual users and orders)
-echo.
-echo How it works:
-echo   1. If user in training data: Pure ML predictions
-echo   2. If user NOT in training but has orders: Item-based ML
-echo   3. If new user: Popular items from database
+echo This service includes:
+echo   1. Sentiment Analysis (Feedback)
+echo   2. Recommendation System (Personalized Menu)
+echo   3. Visual Search (Image-based Search)
 echo.
 echo Port: 5001
-echo Database: MongoDB Atlas (aiu-cafe)
+echo.
+echo Models:
+echo   - Sentiment: ./newml/
+echo   - Recommender: recommender_mode.h5 + recommender_data.pkl
+echo   - Visual Search: ./my_category_model/
 echo ============================================================
 echo.
 
-python ai_service_pure_ml.py
+REM Activate virtual environment if it exists
+if exist "venv\Scripts\activate.bat" (
+    echo Activating virtual environment...
+    call venv\Scripts\activate.bat
+)
+
+echo Starting AI Service on port 5001...
+python ai_service1.py

@@ -163,7 +163,8 @@ export default function MenuPage() {
       
     } catch (error) {
       console.error('Submit Error:', error)
-      alert(`Error saving item: ${error.message}`)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      alert(`Error saving item: ${errorMessage}`)
     } finally {
       setIsSubmitting(false)
     }

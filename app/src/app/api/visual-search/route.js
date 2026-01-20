@@ -111,15 +111,34 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('[VISUAL SEARCH] Error:', error.message);
+    console.error('[VISUAL SEARCH] Error details:', error.code || error.response?.status);
     
-    if (error.code === 'ECONNREFUSED') {
+    // Handle ML service connection errors
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
       return NextResponse.json({ 
-        error: 'ML service is not running. Please start the visual search service.' 
+        error: 'ML service is not available. Please ensure the AI service is running on port 5001.' 
       }, { status: 503 });
     }
 
+    // Handle ML service errors
+    if (error.response?.status) {
+      return NextResponse.json({ 
+        error: error.response?.data?.error || 'ML service error',
+        details: error.response?.data
+      }, { status: error.response.status });
+    }
+
+    // Handle timeout errors
+    if (error.code === 'ECONNABORTED') {
+      return NextResponse.json({ 
+        error: 'Request timeout. The ML service took too long to respond.' 
+      }, { status: 504 });
+    }
+
+    // Generic error
     return NextResponse.json({ 
-      error: error.message || 'Internal server error' 
+      error: error.message || 'Internal server error',
+      type: error.code || 'UNKNOWN_ERROR'
     }, { status: 500 });
   }
 }

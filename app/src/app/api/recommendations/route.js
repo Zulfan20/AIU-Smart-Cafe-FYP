@@ -40,7 +40,10 @@ export async function GET(request) {
       }
     } catch (mlError) {
       console.error('ML Recommendation Service Error:', mlError.message);
-      console.error('Error details:', mlError.code || 'no code');
+      console.error('Error details:', mlError.code || mlError.response?.status || 'no code');
+      if (mlError.code === 'ECONNREFUSED' || mlError.code === 'ETIMEDOUT') {
+        console.warn('ML service not available - will use fallback recommendations');
+      }
       mlStatus = 'error';
     }
 
