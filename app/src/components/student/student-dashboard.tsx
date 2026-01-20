@@ -291,6 +291,17 @@ export function StudentDashboard() {
       console.log('Loading recommendations...')
       const response = await recommendationsAPI.get()
       console.log('Recommendations API response:', response)
+      
+      // Log debug information to see if AI is working
+      if (response.debug) {
+        console.log('🤖 AI Model Status:', {
+          mlServiceCalled: response.debug.mlServiceCalled ? '✅ YES' : '❌ NO',
+          mlRecommendations: response.debug.mlRecommendations,
+          status: response.mlStatus,
+          source: response.debug.mlRecommendations > 0 ? 'AI MODEL' : 'FALLBACK (Top Rated Items)'
+        })
+      }
+      
       const { recommendations } = response
       console.log('Received', recommendations?.length || 0, 'recommendations')
       if (recommendations && recommendations.length > 0) {

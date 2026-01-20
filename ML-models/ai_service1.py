@@ -8,10 +8,31 @@ import pickle
 import tensorflow as tf
 from PIL import Image
 import io
+from pymongo import MongoClient
+from bson import ObjectId
+from collections import Counter
+import os
 
 # Initialize Flask App
 app = Flask(__name__)
 CORS(app)  # Enable CORS for Next.js
+
+# MongoDB Connection
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb+srv://zulfanisious20_db_user:RgxMh7QEGqmiBsaD@aiu-cafe.khakonf.mongodb.net/test?retryWrites=true&w=majority&appName=db-aiu-cafe')
+try:
+    mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    mongo_client.admin.command('ping')
+    db = mongo_client.get_database()
+    orders_collection = db['orders']
+    menu_items_collection = db['menuitems']
+    feedback_collection = db['feedbacks']
+    print("[OK] MongoDB Connected!")
+    print(f"   Database: {db.name}")
+    mongo_ready = True
+except Exception as e:
+    print(f"[WARNING] MongoDB connection failed: {e}")
+    print(f"   Will use ML-only recommendations")
+    mongo_ready = False
 
 # ==========================================
 # SENTIMENT ANALYSIS MODEL
@@ -276,6 +297,175 @@ def batch_analyze():
 
 
 # ==========================================
+# RECOMMENDATION HELPER FUNCTIONS
+# ==========================================
+
+def get_user_order_history(user_id_str):
+    """Fetch user's purchased items and ratings from MongoDB"""
+    try:
+        user_oid = ObjectId(user_id_str)
+        orders = list(orders_collection.find({
+            'userId': user_oid,
+            'status': {'$in': ['Completed', 'Ready']}
+        }))
+        
+        item_names = []
+        item_ratings = {}
+        
+        for order in orders:
+            for item in order.get('items', []):
+                item_name = item.get('name')
+                if item_name:
+                    item_names.append(item_name)
+        
+        feedbacks = list(feedback_collection.find({'userId': user_oid}))
+        for fb in feedbacks:
+            item_id = fb.get('itemId')
+            rating = fb.get('rating', 0)
+            if item_id:
+                menu_item = menu_items_collection.find_one({'_id': item_id})
+                if menu_item:
+                    item_ratings[menu_item['name']] = rating
+        
+        return item_names, item_ratings
+    except Exception as e:
+        print(f"[ERROR] Order history fetch error: {e}")
+        return [], {}
+
+
+def get_personalized_recommendations(user_id_str, top_n=5):
+    """
+    Hybrid recommendation system:
+    1. Use order history + ratings if available (most personalized)
+    2. Fallback to ML model if user is in training data
+    3. Return popular items for cold start
+    """
+    
+    print(f"\n{'='*50}")
+    print(f"RECOMMENDATION REQUEST for User: {user_id_str}")
+    print(f"{'='*50}")
+    
+    # Step 1: Try order-based recommendations
+    if mongo_ready:
+        print("[STEP 1] Checking order history...")
+        purchased_items, item_ratings = get_user_order_history(user_id_str)
+        print(f"  -> Found {len(purchased_items)} purchases")
+        
+        if len(purchased_items) > 0:
+            print(f"[STEP 1: SUCCESS] Using order-based recommendations")
+            
+            item_counter = Counter(purchased_items)
+            most_purchased = [item for item, count in item_counter.most_common(3)]
+            
+            highly_rated = [name for name, rating in item_ratings.items() if rating >= 4]
+            low_rated = [name for name, rating in item_ratings.items() if rating <= 2]
+            neutral_or_unrated = [item for item in set(purchased_items) if item not in item_ratings or (item in item_ratings and 3 <= item_ratings[item] < 4)]
+            
+            print(f"  -> Favorites (4-5 stars): {highly_rated}")
+            print(f"  -> Disliked (1-2 stars): {low_rated}")
+            
+            favorite_categories = set()
+            for item_name in most_purchased + highly_rated:
+                menu_item = menu_items_collection.find_one({'name': item_name})
+                if menu_item:
+                    favorite_categories.add(menu_item.get('category'))
+            
+            print(f"  -> Favorite categories: {favorite_categories}")
+            
+            items_to_exclude = low_rated + neutral_or_unrated
+            recommendations = []
+            already_added_names = []
+            
+            # Add highly-rated favorites first
+            if len(highly_rated) > 0:
+                favorite_items = list(menu_items_collection.find({
+                    'name': {'$in': highly_rated},
+                    'isAvailable': True
+                }).sort([('averageRating', -1), ('reviewCount', -1)]).limit(2))
+                recommendations.extend(favorite_items)
+                already_added_names.extend([item['name'] for item in favorite_items])
+                print(f"  -> Added {len(favorite_items)} favorites")
+            
+            current_exclusions = items_to_exclude + already_added_names
+            
+            # Add reviewed items from favorite categories
+            if len(recommendations) < top_n and len(favorite_categories) > 0:
+                reviewed_same_category = list(menu_items_collection.find({
+                    'category': {'$in': list(favorite_categories)},
+                    'name': {'$nin': current_exclusions},
+                    'isAvailable': True,
+                    'averageRating': {'$gt': 0}
+                }).sort([('averageRating', -1), ('reviewCount', -1)]).limit(top_n - len(recommendations)))
+                recommendations.extend(reviewed_same_category)
+                already_added_names.extend([item['name'] for item in reviewed_same_category])
+                print(f"  -> Added {len(reviewed_same_category)} items from favorite categories")
+            
+            current_exclusions = items_to_exclude + already_added_names
+            
+            # Add any items from favorite categories
+            if len(recommendations) < top_n and len(favorite_categories) > 0:
+                any_same_category = list(menu_items_collection.find({
+                    'category': {'$in': list(favorite_categories)},
+                    'name': {'$nin': current_exclusions},
+                    'isAvailable': True
+                }).sort('createdAt', -1).limit(top_n - len(recommendations)))
+                recommendations.extend(any_same_category)
+                already_added_names.extend([item['name'] for item in any_same_category])
+            
+            # Add items from other categories
+            if len(recommendations) < top_n:
+                current_exclusions = items_to_exclude + already_added_names
+                other_items = list(menu_items_collection.find({
+                    'name': {'$nin': current_exclusions},
+                    'isAvailable': True
+                }).sort([('averageRating', -1), ('reviewCount', -1)]).limit(top_n - len(recommendations)))
+                recommendations.extend(other_items)
+            
+            if len(recommendations) > 0:
+                rec_names = [item['name'] for item in recommendations[:top_n]]
+                print(f"  -> Returning {len(rec_names)} personalized recommendations")
+                return rec_names, "Personalized (Order History)"
+        else:
+            print("[STEP 1: SKIP] No purchase history")
+    
+    # Step 2: Try ML model
+    print("[STEP 2] Checking ML model...")
+    if rec_ready and user_id_str in user_encoder.classes_:
+        print("[STEP 2: SUCCESS] User found in ML training data")
+        user_idx = user_encoder.transform([user_id_str])[0]
+        user_input = np.full(num_items, user_idx)
+        predictions = rec_model.predict([user_input, all_item_indices], verbose=0).flatten()
+        top_indices = np.argsort(predictions)[-top_n:][::-1]
+        top_items = item_encoder.inverse_transform(top_indices)
+        print(f"  -> ML recommendations: {top_items.tolist()}")
+        return top_items.tolist(), "ML Model"
+    else:
+        print("[STEP 2: SKIP] User not in ML training data")
+    
+    # Step 3: Cold start - popular items
+    print("[STEP 3] Cold start fallback...")
+    if mongo_ready:
+        popular = list(menu_items_collection.find({
+            'isAvailable': True,
+            'averageRating': {'$gt': 0}
+        }).sort([('averageRating', -1), ('reviewCount', -1)]).limit(top_n))
+        
+        if len(popular) < top_n:
+            additional = list(menu_items_collection.find({
+                'isAvailable': True,
+                'averageRating': 0
+            }).sort('createdAt', -1).limit(top_n - len(popular)))
+            popular.extend(additional)
+        
+        pop_names = [item['name'] for item in popular]
+        print(f"  -> Returning {len(pop_names)} popular items")
+        return pop_names, "Popular Items (Cold Start)"
+    
+    print("[RESULT] No recommendations available")
+    return [], "No recommendations available"
+
+
+# ==========================================
 # RECOMMENDATION ENDPOINTS
 # ==========================================
 
@@ -284,23 +474,11 @@ def recommend():
     """
     Get personalized item recommendations for a user
     
-    Request body:
-    {
-        "user_id": "675f3da3b7e0c957a5e66fe9"
-    }
-    
-    Response:
-    {
-        "user_id": "675f3da3b7e0c957a5e66fe9",
-        "recommendations": ["Item1", "Item2", "Item3", "Item4", "Item5"],
-        "status": "Success"
-    }
+    Uses hybrid approach:
+    1. Order history + ratings (most personalized)
+    2. ML model predictions (if user in training data)
+    3. Popular items (cold start)
     """
-    if not rec_ready:
-        return jsonify({
-            "error": "Recommendation model not loaded. Please check server logs."
-        }), 503
-    
     try:
         data = request.get_json()
         user_id = data.get('user_id')
@@ -308,35 +486,12 @@ def recommend():
         if not user_id:
             return jsonify({"error": "user_id is required"}), 400
         
-        # Check if user exists in encoder
-        if user_id not in user_encoder.classes_:
-            print(f"[RECOMMEND] User {user_id} not in training data - returning popular items")
-            # Return empty for unknown users (frontend will handle fallback)
-            return jsonify({
-                "user_id": user_id,
-                "recommendations": [],
-                "status": "User not found - returning empty list"
-            })
-        
-        # Get user index
-        user_idx = user_encoder.transform([user_id])[0]
-        
-        # Create input: user index repeated for all items
-        user_input = np.full(num_items, user_idx)
-        
-        # Make predictions
-        predictions = rec_model.predict([user_input, all_item_indices], verbose=0).flatten()
-        
-        # Get top 5 recommendations
-        top_indices = np.argsort(predictions)[-5:][::-1]
-        top_items = item_encoder.inverse_transform(top_indices)
-        
-        print(f"[RECOMMEND] User {user_id} -> {list(top_items)}")
+        recommendations, status = get_personalized_recommendations(user_id, top_n=5)
         
         return jsonify({
             "user_id": user_id,
-            "recommendations": list(top_items),
-            "status": "Success"
+            "recommendations": recommendations,
+            "status": status
         })
     
     except Exception as e:
