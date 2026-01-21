@@ -353,9 +353,23 @@ def visual_search():
         if file.filename == '':
             return jsonify({"error": "No image file selected"}), 400
         
-        # Process image
+        # Process image with better error handling
         image_bytes = file.read()
-        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
+        
+        if not image_bytes:
+            return jsonify({"error": "Empty image file"}), 400
+        
+        # Create BytesIO and seek to start
+        image_io = io.BytesIO(image_bytes)
+        image_io.seek(0)
+        
+        # Try to open image
+        try:
+            image = Image.open(image_io)
+            image = image.convert('RGB')
+        except Exception as img_error:
+            print(f"[ERROR] Invalid image: {str(img_error)}")
+            return jsonify({"error": f"Invalid image file: {str(img_error)}"}), 400
         
         inputs = image_processor(images=image, return_tensors="pt")
         
