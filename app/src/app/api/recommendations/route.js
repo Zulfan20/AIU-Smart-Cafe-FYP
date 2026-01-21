@@ -80,23 +80,8 @@ export async function GET(request) {
         }
       }
     } else {
-      console.log('No recommendations from ML service, using fallback');
-    }
-
-    // Cold start fallback: popular/available items
-    if (items.length === 0) {
-      console.log('Using top-rated fallback...');
-      items = await MenuItem.find({ isAvailable: true })
-        .sort({ averageRating: -1, feedbackCount: -1, createdAt: -1 })
-        .limit(3);
-      console.log('Found', items.length, 'top-rated items');
-    }
-
-    // Absolute safety net: if still empty, return the latest 3 items
-    if (items.length === 0) {
-      console.log('Using latest items fallback...');
-      items = await MenuItem.find({}).sort({ createdAt: -1 }).limit(3);
-      console.log('Found', items.length, 'latest items');
+      console.log('No recommendations from ML service - user has no purchase history');
+      console.log('Returning empty array (hide "Recommended for You" section)');
     }
 
     console.log('Final recommendations count:', items.length);

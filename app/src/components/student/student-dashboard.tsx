@@ -973,8 +973,10 @@ export function StudentDashboard() {
                     <BestSellerItems items={bestSellers} onAddToCart={addToCart} onViewReviews={handleViewReviews} />
                   )}
                   
-                  {/* Recommended Items */}
-                  <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+                  {/* Recommended Items - Only show if user has purchase history */}
+                  {recommendedItems.length > 0 && (
+                    <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+                  )}
                 </>
               ) : (
                 /* Best Sellers for non-logged in users */
@@ -1001,8 +1003,10 @@ export function StudentDashboard() {
                   onMarkAsPickedUp={markAsPickedUp}
                 />
                 
-                {/* Recommended Items */}
-                <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+                {/* Recommended Items - Only show if user has purchase history */}
+                {recommendedItems.length > 0 && (
+                  <RecommendedItems items={recommendedItems} onAddToCart={addToCart} />
+                )}
               </>
             )}
           </div>
