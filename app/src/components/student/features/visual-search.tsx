@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -28,13 +28,32 @@ export default function VisualSearch({ onAddToCart }: { onAddToCart: (item: Menu
   const [stream, setStream] = useState<MediaStream | null>(null)
   const [addingToCart, setAddingToCart] = useState<string | null>(null)
   const [addedItem, setAddedItem] = useState<string | null>(null) // For popup confirmation
+  const [isCameraAvailable, setIsCameraAvailable] = useState(true)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Check if camera is available (HTTPS required on mobile)
+  useEffect(() => {
+    const isHttps = window.location.protocol === 'https:'
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    
+    // Camera requires HTTPS or localhost
+    setIsCameraAvailable(hasMediaDevices && (isHttps || isLocalhost))
+  }, [])
+
   const startCamera = async () => {
     try {
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Camera not available. Please use file upload instead.', {
+          description: 'Camera access requires HTTPS connection on mobile devices.'
+        })
+        return
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } // Use back camera on mobile
       })
@@ -49,7 +68,25 @@ export default function VisualSearch({ onAddToCart }: { onAddToCart: (item: Menu
       }, 100)
     } catch (error) {
       console.error('Camera error:', error)
-      toast.error('Unable to access camera. Please check permissions.')
+      
+      // Provide specific error messages
+      if (error instanceof DOMException) {
+        if (error.name === 'NotAllowedError') {
+          toast.error('Camera permission denied. Please allow camera access in your browser settings.')
+        } else if (error.name === 'NotFoundError') {
+          toast.error('No camera found on this device.')
+        } else if (error.name === 'NotReadableError') {
+          toast.error('Camera is already in use by another application.')
+        } else if (error.name === 'SecurityError') {
+          toast.error('Camera access blocked. Please use HTTPS or file upload.', {
+            description: 'Try accessing via https:// or use the Upload button instead.'
+          })
+        } else {
+          toast.error('Unable to access camera. Please use file upload instead.')
+        }
+      } else {
+        toast.error('Unable to access camera. Please check permissions or use file upload.')
+      }
     }
   }
 
@@ -199,6 +236,24 @@ export default function VisualSearch({ onAddToCart }: { onAddToCart: (item: Menu
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Camera Not Available Warning */}
+          {!isCameraAvailable && !imagePreview && !isCameraMode && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <Camera className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-amber-900 mb-1">
+                    Camera not available
+                  </h4>
+                  <p className="text-xs text-amber-700">
+                    Camera access requires a secure HTTPS connection on mobile devices. 
+                    Please use the <strong>Upload Image</strong> option below instead.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Image Upload/Camera Area */}
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
             {!imagePreview && !isCameraMode ? (
@@ -235,9 +290,10 @@ export default function VisualSearch({ onAddToCart }: { onAddToCart: (item: Menu
                   variant="outline"
                   className="w-full"
                   onClick={startCamera}
+                  disabled={!isCameraAvailable}
                 >
                   <Camera className="mr-2 h-5 w-5" />
-                  Take a Photo
+                  {isCameraAvailable ? 'Take a Photo' : 'Camera Unavailable (Use Upload)'}
                 </Button>
               </div>
             ) : isCameraMode ? (
