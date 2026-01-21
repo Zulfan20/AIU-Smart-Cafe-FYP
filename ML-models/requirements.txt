@@ -1,7 +1,0 @@
-flask
-tensorflow
-pandas
-numpy
-scikit-learn
-pymongo
-pymongo
