@@ -53,7 +53,7 @@ git lfs install
 ### Step 4: Clone Your Hugging Face Space
 ```bash
 # Replace YOUR_USERNAME with your actual Hugging Face username
-git clone https://huggingface.co/spaces/YOUR_USERNAME/aiu-smart-cafe
+git clone https://huggingface.co/spaces/Zulfan20/aiu-smart-cafe
 cd aiu-smart-cafe
 ```
 
