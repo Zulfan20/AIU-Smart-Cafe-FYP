@@ -6,7 +6,7 @@ export async function POST(request) {
   await dbConnect();
 
   try {
-    const { name, email, password } = await request.json();
+    const { name, email, password, role } = await request.json();
 
     // Validation
     if (!name || !email || !password) {
@@ -23,10 +23,19 @@ export async function POST(request) {
     const newUser = new User({
       name,
       email,
-      passwordHash: password, 
+      passwordHash: password,
+      role: role || 'student', // Allow role specification, default to student
+      accountStatus: (role === 'admin' || role === 'staff') ? 'approved' : 'pending'
     });
 
     await newUser.save();
+
+    if (role === 'admin' || role === 'staff') {
+      return NextResponse.json({ 
+        message: 'Admin/Staff account created successfully!',
+        status: 'approved'
+      }, { status: 201 });
+    }
 
     return NextResponse.json({ 
       message: 'Registration successful! Your account is pending approval. You will be able to login once an admin approves your account.',

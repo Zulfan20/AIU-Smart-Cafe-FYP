@@ -8,15 +8,10 @@ export async function GET(request) {
   await dbConnect();
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.user) {
+    // Verify admin authentication with role check
+    const authResult = await verifyAuth(request, 'admin');
+    if (authResult.error) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
-    }
-
-    // Check if user is admin or staff
-    if (!['admin', 'staff'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 
     // Get filter from query params
@@ -61,15 +56,10 @@ export async function PUT(request) {
   await dbConnect();
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.user) {
+    // Verify admin authentication with role check
+    const authResult = await verifyAuth(request, 'admin');
+    if (authResult.error) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
-    }
-
-    // Check if user is admin or staff
-    if (!['admin', 'staff'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 
     const { userId, action, rejectionReason } = await request.json();
@@ -124,15 +114,10 @@ export async function DELETE(request) {
   await dbConnect();
 
   try {
-    // Verify admin authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.user) {
+    // Verify admin authentication with role check
+    const authResult = await verifyAuth(request, 'admin');
+    if (authResult.error) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
-    }
-
-    // Check if user is admin or staff
-    if (!['admin', 'staff'].includes(authResult.user.role)) {
-      return NextResponse.json({ error: 'Unauthorized - Admin access required' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);

@@ -83,9 +83,9 @@ export async function POST(request) {
     // Only run sentiment analysis if the user actually typed something.
     if (textReview && textReview.trim().length > 0) {
       try {
-        // Get the URL from .env (e.g., https://aiu-cafe-ml.onrender.com)
-        // Fallback to localhost for development
-        const mlServiceUrl = process.env.ML_SERVICE_URL || 'http://127.0.0.1:5000';
+        // Use new feedback sentiment service on port 5001
+        // Fallback to old service on port 5000 if not available
+        const mlServiceUrl = process.env.SENTIMENT_SERVICE_URL || 'http://127.0.0.1:5001';
         
         console.log(`[SENTIMENT] Calling ML Service at: ${mlServiceUrl}/analyze_feedback`);
         console.log(`[SENTIMENT] Text review: "${textReview}"`);

@@ -22,11 +22,14 @@ const UserSchema = new mongoose.Schema({
     enum: ['student', 'staff', 'admin'],
     default: 'student',
   },
-  // Account approval status
+  // Account approval status (only applies to students)
   accountStatus: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
+    enum: ['pending', 'approved', 'rejected', 'blocked'],
+    default: function() {
+      // Admins and staff are automatically approved
+      return (this.role === 'admin' || this.role === 'staff') ? 'approved' : 'pending';
+    },
   },
   approvedBy: {
     type: mongoose.Schema.Types.ObjectId,

@@ -53,7 +53,8 @@ export async function POST(request) {
     // 6. Generate JWT Token
     // This token proves who the user is for future requests
     const payload = {
-      id: user._id,
+      userId: user._id, // Use userId to match verifyAuth
+      id: user._id,     // Keep id for backwards compatibility
       name: user.name,
       email: user.email,
       role: user.role,

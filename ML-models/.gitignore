@@ -1,0 +1,43 @@
+# Large Model Files - DO NOT push to GitHub
+# These files should ONLY be uploaded to Hugging Face Space
+
+# Recommendation Model Files
+recommender_mode.h5
+recommender_model.h5
+recommender_data.pkl
+user_encoder.pkl
+item_encoder.pkl
+user_history.pkl
+*.h5
+*.pkl
+
+# Sentiment Analysis Model (newml folder)
+newml/
+my_cafe_model/
+
+# Visual Search Model (my_category_model folder)
+my_category_model/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+service_test.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
